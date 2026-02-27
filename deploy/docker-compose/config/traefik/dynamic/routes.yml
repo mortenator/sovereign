@@ -1,0 +1,202 @@
+# Traefik v3 — Dynamic Routing Configuration
+# Sovereign Deploy — EU Sovereign Document Suite
+#
+# Loaded by the Traefik file provider from /etc/traefik/dynamic/.
+# Most routing is defined via Docker labels in docker-compose.yml.
+# This file adds shared middleware and catches edge cases.
+
+# ─────────────────────────────────────────────
+# HTTP Configuration
+# ─────────────────────────────────────────────
+http:
+
+  # ─────────────────────────────────────────────
+  # Middlewares — reusable across all routers
+  # ─────────────────────────────────────────────
+  middlewares:
+
+    # HTTP → HTTPS permanent redirect
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # Security headers — apply to all production services
+    secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+          X-Frame-Options: "SAMEORIGIN"
+
+    # Rate limiting — general traffic
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    # Rate limiting for auth endpoints (stricter)
+    auth-rate-limit:
+      rateLimit:
+        average: 10
+        burst: 20
+        period: 1s
+
+    # Compress responses (gzip/brotli)
+    gzip-compress:
+      compress: {}
+
+    # CORS for OnlyOffice document editor iframe
+    onlyoffice-cors:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowOriginList:
+          - "https://{{ env \"DOMAIN\" }}"
+        accessControlAllowHeaders:
+          - "Authorization"
+          - "Content-Type"
+        accessControlMaxAge: 3600
+        addVaryHeader: true
+
+    # Required forwarded proto header for OnlyOffice WebSocket
+    onlyoffice-forwarded-proto:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+  # ─────────────────────────────────────────────
+  # Routers — supplement Docker label routing
+  # ─────────────────────────────────────────────
+  routers:
+
+    # Catch-all: redirect bare HTTP to HTTPS
+    http-catchall:
+      rule: "HostRegexp(`.+`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: noop
+      priority: 1
+
+    # Web frontend
+    web-secure:
+      rule: "Host(`{{ env \"DOMAIN\" }}`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers
+        - rate-limit
+        - gzip-compress
+      service: web-backend
+      tls:
+        certResolver: letsencrypt
+
+    # Auth (Keycloak) — stricter rate limiting
+    keycloak-secure:
+      rule: "Host(`auth.{{ env \"DOMAIN\" }}`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers
+        - auth-rate-limit
+      service: keycloak-backend
+      tls:
+        certResolver: letsencrypt
+
+    # OnlyOffice Document Server
+    onlyoffice-secure:
+      rule: "Host(`docs.{{ env \"DOMAIN\" }}`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers
+        - onlyoffice-cors
+        - onlyoffice-forwarded-proto
+      service: onlyoffice-backend
+      tls:
+        certResolver: letsencrypt
+
+    # MinIO storage console
+    minio-secure:
+      rule: "Host(`storage.{{ env \"DOMAIN\" }}`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers
+        - auth-rate-limit
+      service: minio-backend
+      tls:
+        certResolver: letsencrypt
+
+  # ─────────────────────────────────────────────
+  # Services — backend definitions
+  # ─────────────────────────────────────────────
+  services:
+
+    noop:
+      loadBalancer:
+        servers: []
+
+    web-backend:
+      loadBalancer:
+        servers:
+          - url: "http://web:3000"
+        healthCheck:
+          path: /api/health
+          interval: 30s
+          timeout: 5s
+
+    keycloak-backend:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"
+        healthCheck:
+          path: /health/ready
+          interval: 30s
+          timeout: 5s
+        passHostHeader: true
+
+    onlyoffice-backend:
+      loadBalancer:
+        servers:
+          - url: "http://onlyoffice:80"
+        healthCheck:
+          path: /healthcheck
+          interval: 30s
+          timeout: 10s
+
+    minio-backend:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9001"
+
+# ─────────────────────────────────────────────
+# TLS Configuration
+# ─────────────────────────────────────────────
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      sniStrict: true

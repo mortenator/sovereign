@@ -1,0 +1,339 @@
+# Sovereign Deploy — Production Docker Compose Stack
+# EU-sovereign document suite: OnlyOffice + Keycloak + MinIO + Traefik
+# All secrets loaded from .env — never hardcode passwords here.
+# Run `scripts/setup.sh` to generate .env and start the stack.
+
+x-common-labels: &common-labels
+  com.sovereign.project: "sovereign"
+  com.sovereign.managed-by: "docker-compose"
+
+services:
+
+  # ─────────────────────────────────────────────
+  # Traefik — Reverse Proxy + TLS Termination
+  # Only service exposed to the internet.
+  # ─────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.0.4
+    container_name: sovereign-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik-certs:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      <<: *common-labels
+      traefik.enable: "false"
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL — Primary Database
+  # Hosts: sovereign, onlyoffice, keycloak schemas
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16.2-alpine
+    container_name: sovereign-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sovereign
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: sovereign
+      PGDATA: /var/lib/postgresql/data/pgdata
+      # Passed to init.sh to create onlyoffice/keycloak users
+      ONLYOFFICE_DB_PASSWORD: ${ONLYOFFICE_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sovereign -d sovereign"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      <<: *common-labels
+
+  # ─────────────────────────────────────────────
+  # Redis — Cache + Session Store
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7.2.4-alpine
+    container_name: sovereign-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      <<: *common-labels
+
+  # ─────────────────────────────────────────────
+  # MinIO — S3-Compatible Object Storage
+  # Stores all uploaded documents.
+  # ─────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-03-15T01-07-19Z
+    container_name: sovereign-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_REGION: ${MINIO_REGION:-eu-central-1}
+      MINIO_BROWSER_REDIRECT_URL: https://storage.${DOMAIN}
+    volumes:
+      - minio-data:/data
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      <<: *common-labels
+      traefik.enable: "true"
+      traefik.http.routers.minio-console.rule: "Host(`storage.${DOMAIN}`)"
+      traefik.http.routers.minio-console.entrypoints: "websecure"
+      traefik.http.routers.minio-console.tls.certresolver: "letsencrypt"
+      traefik.http.routers.minio-console.service: "minio-console-svc"
+      traefik.http.services.minio-console-svc.loadbalancer.server.port: "9001"
+
+  # ─────────────────────────────────────────────
+  # MinIO Init — Creates required bucket on startup
+  # Runs once and exits.
+  # ─────────────────────────────────────────────
+  minio-init:
+    image: minio/mc:RELEASE.2024-03-13T23-51-57Z
+    container_name: sovereign-minio-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set sovereign http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+        mc mb --ignore-existing sovereign/sovereign-documents &&
+        mc anonymous set private sovereign/sovereign-documents &&
+        echo 'MinIO bucket sovereign-documents ready.'
+      "
+    networks:
+      - sovereign-net
+    labels:
+      <<: *common-labels
+
+  # ─────────────────────────────────────────────
+  # Keycloak — Identity & Access Management
+  # OIDC/SAML/LDAP provider for SSO.
+  # ─────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.7
+    container_name: sovereign-keycloak
+    restart: unless-stopped
+    command: start --import-realm --optimized
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HOSTNAME: auth.${DOMAIN}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_LOG_LEVEL: INFO
+      # Disable telemetry
+      KC_FEATURES_DISABLED: "admin-fine-grained-authz"
+    volumes:
+      - ./config/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+      - keycloak-data:/opt/keycloak/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      <<: *common-labels
+      traefik.enable: "true"
+      traefik.http.routers.keycloak.rule: "Host(`auth.${DOMAIN}`)"
+      traefik.http.routers.keycloak.entrypoints: "websecure"
+      traefik.http.routers.keycloak.tls.certresolver: "letsencrypt"
+      traefik.http.routers.keycloak.service: "keycloak-svc"
+      traefik.http.services.keycloak-svc.loadbalancer.server.port: "8080"
+
+  # ─────────────────────────────────────────────
+  # OnlyOffice Document Server
+  # Document editing engine (JWT-secured).
+  # ─────────────────────────────────────────────
+  onlyoffice:
+    image: onlyoffice/documentserver:8.0.1
+    container_name: sovereign-onlyoffice
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: onlyoffice
+      DB_USER: onlyoffice
+      DB_PWD: ${ONLYOFFICE_DB_PASSWORD}
+      REDIS_SERVER_HOST: redis
+      REDIS_SERVER_PORT: "6379"
+      REDIS_SERVER_PASS: ${REDIS_PASSWORD}
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
+      JWT_HEADER: Authorization
+      JWT_IN_BODY: "true"
+      # Disable telemetry (EU sovereignty requirement)
+      WOPI_ENABLED: "false"
+    volumes:
+      - onlyoffice-data:/var/www/onlyoffice/Data
+      - onlyoffice-logs:/var/log/onlyoffice
+      - onlyoffice-fonts:/usr/share/fonts/truetype/onlyoffice
+      - ./config/onlyoffice/local.json:/etc/onlyoffice/documentserver/local.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      <<: *common-labels
+      traefik.enable: "true"
+      traefik.http.routers.onlyoffice.rule: "Host(`docs.${DOMAIN}`)"
+      traefik.http.routers.onlyoffice.entrypoints: "websecure"
+      traefik.http.routers.onlyoffice.tls.certresolver: "letsencrypt"
+      traefik.http.routers.onlyoffice.service: "onlyoffice-svc"
+      traefik.http.services.onlyoffice-svc.loadbalancer.server.port: "80"
+      # Required headers for WebSocket / document collaboration
+      traefik.http.middlewares.onlyoffice-headers.headers.customrequestheaders.X-Forwarded-Proto: "https"
+      traefik.http.routers.onlyoffice.middlewares: "onlyoffice-headers"
+
+  # ─────────────────────────────────────────────
+  # Sovereign Web — Frontend Application
+  # React/Next.js document management UI.
+  # ─────────────────────────────────────────────
+  web:
+    image: ghcr.io/sovereign-eu/sovereign-web:${WEB_IMAGE_TAG:-latest}
+    container_name: sovereign-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_DOMAIN: https://${DOMAIN}
+      NEXT_PUBLIC_ONLYOFFICE_URL: https://docs.${DOMAIN}
+      NEXT_PUBLIC_KEYCLOAK_URL: https://auth.${DOMAIN}
+      NEXT_PUBLIC_KEYCLOAK_REALM: sovereign
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: sovereign-web
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
+      DATABASE_URL: postgresql://sovereign:${POSTGRES_PASSWORD}@postgres:5432/sovereign
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: sovereign-documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - sovereign-net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      <<: *common-labels
+      traefik.enable: "true"
+      traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"
+      traefik.http.routers.web.entrypoints: "websecure"
+      traefik.http.routers.web.tls.certresolver: "letsencrypt"
+      traefik.http.routers.web.service: "web-svc"
+      traefik.http.services.web-svc.loadbalancer.server.port: "3000"
+
+# ─────────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────────
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  minio-data:
+    driver: local
+  keycloak-data:
+    driver: local
+  onlyoffice-data:
+    driver: local
+  onlyoffice-logs:
+    driver: local
+  onlyoffice-fonts:
+    driver: local
+  traefik-certs:
+    driver: local
+
+# ─────────────────────────────────────────────
+# Networks
+# All services on a private bridge — only Traefik
+# has ports exposed to the host.
+# ─────────────────────────────────────────────
+networks:
+  sovereign-net:
+    driver: bridge
+    name: sovereign-net
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

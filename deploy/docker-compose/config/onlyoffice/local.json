@@ -1,0 +1,97 @@
+{
+  "services": {
+    "CoAuthoring": {
+      "sql": {
+        "type": "postgres",
+        "dbHost": "postgres",
+        "dbPort": "5432",
+        "dbName": "onlyoffice",
+        "dbUser": "onlyoffice",
+        "dbPass": ""
+      },
+      "redis": {
+        "host": "redis",
+        "port": "6379"
+      },
+      "server": {
+        "port": 8080,
+        "siteUrl": ""
+      },
+      "token": {
+        "enable": {
+          "request": {
+            "inbox": true,
+            "outbox": true
+          },
+          "browser": true
+        },
+        "inbox": {
+          "header": "Authorization",
+          "inBody": true
+        },
+        "outbox": {
+          "header": "Authorization",
+          "inBody": true
+        }
+      },
+      "autoAssembly": {
+        "enable": true,
+        "interval": "5m"
+      }
+    },
+    "storage": {
+      "fs": {
+        "secretString": "",
+        "folderPath": "/var/www/onlyoffice/Data"
+      }
+    },
+    "stats": {
+      "enabled": false
+    }
+  },
+  "FileConverter": {
+    "converter": {
+      "maxDownloadBytes": 104857600,
+      "downloadTimeout": 120000
+    }
+  },
+  "storage": {
+    "fs": {
+      "folderPath": "/var/www/onlyoffice/Data"
+    }
+  },
+  "rabbitmq": {
+    "url": "amqp://guest:guest@localhost"
+  },
+  "log": {
+    "filePath": "/var/log/onlyoffice",
+    "appenders": {
+      "rolling": {
+        "filename": "/var/log/onlyoffice/out.log",
+        "maxLogSize": 524288,
+        "backups": 7
+      }
+    }
+  },
+  "wopi": {
+    "enable": false
+  },
+  "fonts": {
+    "inputPath": "/usr/share/fonts",
+    "outputPath": "/var/www/onlyoffice/documentserver/sdkjs/common",
+    "enabled": true
+  },
+  "tenants": {
+    "baseDir": "/var/www/onlyoffice/Data/tenants"
+  },
+  "services": {
+    "metrics": {
+      "enabled": false
+    }
+  },
+  "regions": {
+    "eu": {
+      "dataCenter": "eu-central-1"
+    }
+  }
+}

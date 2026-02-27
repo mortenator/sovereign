@@ -1,0 +1,74 @@
+# Sovereign Deploy — Development Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Changes from production:
+# - Ports exposed directly (no TLS, no Traefik routing)
+# - Keycloak in dev mode (no optimized build required)
+# - Debug/verbose logging
+# - Hot-reload friendly web container
+
+services:
+
+  traefik:
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "8080:8080"   # Traefik dashboard
+
+  postgres:
+    ports:
+      - "5432:5432"   # Expose for local DB tools (TablePlus, psql)
+
+  redis:
+    ports:
+      - "6379:6379"   # Expose for local inspection
+
+  minio:
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO console
+    environment:
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+
+  keycloak:
+    # Dev mode: no build optimisation required, accepts HTTP
+    command: start-dev --import-realm
+    environment:
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: ""
+      KC_LOG_LEVEL: DEBUG
+    ports:
+      - "8081:8080"   # Keycloak admin at http://localhost:8081
+
+  onlyoffice:
+    ports:
+      - "8082:80"     # Document Server at http://localhost:8082
+    environment:
+      JWT_ENABLED: "false"   # Disabled for dev convenience (re-enable for prod)
+
+  web:
+    # In dev, mount local source and use dev server
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+      target: development
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../apps/web:/app:cached
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_DOMAIN: http://localhost:3000
+      NEXT_PUBLIC_ONLYOFFICE_URL: http://localhost:8082
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8081
