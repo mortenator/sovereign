@@ -1,0 +1,63 @@
+name: Nator PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+
+jobs:
+  nator-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch PR metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number || github.event.inputs.pr_number }}"
+          gh pr view "$PR" --json body -q .body > /tmp/pr_body.txt
+          gh pr view "$PR" --json files -q '[.files[].path] | join(", ")' > /tmp/pr_files.txt
+          gh pr diff "$PR" | head -600 > /tmp/pr_diff.txt
+
+      - name: Run Nator Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title || github.event.inputs.pr_number }}
+        run: python3 .github/scripts/nator_review.py
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+        run: |
+          REVIEW=$(cat /tmp/review.txt)
+          SHORT_SHA="${PR_SHA:0:7}"
+          if [ "$PR_ACTION" = "opened" ] || [ -z "$PR_ACTION" ]; then
+            TRIGGER="Nator review"
+          else
+            TRIGGER="Re-review triggered by new commits (${SHORT_SHA})"
+          fi
+          printf '## ⚡ Nator Review
+
+%s
+
+---
+*%s. Loop continues on every push until all comments are resolved.*' \
+            "$REVIEW" "$TRIGGER" > /tmp/comment_body.txt
+          gh pr comment "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body-file /tmp/comment_body.txt
