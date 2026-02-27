@@ -1,0 +1,26 @@
+{
+  "name": "docx-compat-tests",
+  "version": "1.0.0",
+  "description": "DOCX compatibility test suite for Project Sovereign",
+  "private": true,
+  "scripts": {
+    "generate-corpus": "npx ts-node generate-corpus.ts",
+    "test": "npx ts-node run-tests.ts",
+    "score": "npx ts-node score-results.ts",
+    "report": "npx ts-node score-results.ts --report-only"
+  },
+  "dependencies": {
+    "docx": "^8.5.0",
+    "pixelmatch": "^5.3.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.0",
+    "@types/node": "^20.0.0",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.4",
+    "playwright": "^1.41.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  }
+}
