@@ -1,0 +1,86 @@
+name: Nator Fix Loop
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  auto-fix:
+    # Only trigger on PR comments from github-actions containing "Needs changes before merge"
+    # Cap at 5 fix attempts to prevent infinite loops
+    if: |
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.login == 'github-actions[bot]' &&
+      contains(github.event.comment.body, 'Needs changes before merge')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Check fix attempt count (cap at 5)
+        id: check_attempts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.issue.number }}"
+          REPO="${{ github.repository }}"
+          NATOR_REVIEWS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments             --jq '[.comments[] | select(.author.login == "github-actions" and (.body | startswith("## ⚡ Nator Review")))] | length')
+          echo "nator_reviews=$NATOR_REVIEWS" >> $GITHUB_OUTPUT
+          if [ "$NATOR_REVIEWS" -ge 5 ]; then
+            echo "Reached max fix attempts (5). Stopping loop."
+            exit 0
+          fi
+
+      - name: Checkout PR branch
+        if: steps.check_attempts.outputs.nator_reviews < '5'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.issue.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch PR metadata
+        if: steps.check_attempts.outputs.nator_reviews < '5'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.issue.number }}"
+          gh pr view "$PR" --json files -q '[.files[].path] | join(", ")' > /tmp/pr_files.txt
+          gh pr diff "$PR" | head -600 > /tmp/pr_diff.txt
+          # Save the triggering Nator review comment
+          echo "${{ github.event.comment.body }}" > /tmp/nator_review.txt
+
+      - name: Run Nator Fix Agent
+        if: steps.check_attempts.outputs.nator_reviews < '5'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_TITLE: ${{ github.event.issue.title }}
+        run: python3 .github/scripts/nator_fix.py
+
+      - name: Commit and push fixes
+        if: steps.check_attempts.outputs.nator_reviews < '5'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s /tmp/fix_summary.txt ]; then
+            echo "No fixes to commit."
+            exit 0
+          fi
+
+          SUMMARY=$(cat /tmp/fix_summary.txt)
+
+          # Check if anything changed
+          if git diff --quiet; then
+            echo "No file changes detected."
+            exit 0
+          fi
+
+          git config user.name "Nator"
+          git config user.email "nator@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: Nator auto-fix loop (attempt ${{ steps.check_attempts.outputs.nator_reviews }})
+
+          $SUMMARY"
+          git push
+          # Push triggers nator-review.yml automatically for next review
