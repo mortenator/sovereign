@@ -5,17 +5,14 @@ pr_body  = open("/tmp/pr_body.txt").read().strip()
 pr_files = open("/tmp/pr_files.txt").read().strip()
 pr_diff  = open("/tmp/pr_diff.txt").read().strip()
 
-prompt = "
-".join([
+prompt = "\n".join([
     "You are a senior engineer doing a thorough pre-merge code review.",
     "Be direct. Flag real issues only - skip sections with nothing to flag.",
     "",
     f"PR TITLE: {pr_title}",
-    f"PR DESCRIPTION:
-{pr_body}",
+    f"PR DESCRIPTION:\n{pr_body}",
     f"CHANGED FILES: {pr_files}",
-    f"FULL DIFF:
-{pr_diff}",
+    f"FULL DIFF:\n{pr_diff}",
     "",
     "## Bugs & Logic Errors",
     "Runtime breaks, wrong logic, unhandled edge cases.",

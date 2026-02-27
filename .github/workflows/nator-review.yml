@@ -51,12 +51,7 @@ jobs:
           else
             TRIGGER="Re-review triggered by new commits (${SHORT_SHA})"
           fi
-          printf '## ⚡ Nator Review
-
-%s
-
----
-*%s. Loop continues on every push until all comments are resolved.*' \
+          printf '## ⚡ Nator Review\n\n%s\n\n---\n*%s. Loop continues on every push until all comments are resolved.*' \
             "$REVIEW" "$TRIGGER" > /tmp/comment_body.txt
           gh pr comment "$PR_NUMBER" \
             --repo "${{ github.repository }}" \
