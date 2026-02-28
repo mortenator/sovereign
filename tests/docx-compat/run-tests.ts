@@ -427,8 +427,11 @@ async function main(): Promise<void> {
     }
   } finally {
     await browser.close();
+    // Close all active connections first so server.close() resolves immediately,
+    // then await the close to avoid a race where process exit (on error path)
+    // tears down the handle before the OS releases the port.
     fileServer.closeAllConnections();
-    fileServer.close();
+    await new Promise<void>((resolve) => fileServer.close(() => resolve()));
   }
 }
 
