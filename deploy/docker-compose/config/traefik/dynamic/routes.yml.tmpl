@@ -63,6 +63,24 @@ http:
     gzip-compress:
       compress: {}
 
+    # Security headers for OnlyOffice — mirrors secure-headers but omits X-Frame-Options.
+    # The web app at https://${DOMAIN} iframes docs.${DOMAIN}, which is a different origin.
+    # SAMEORIGIN would block that frame; we rely on JWT and CORS to secure the embed instead.
+    onlyoffice-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+          X-Frame-Options: ""
+
     # CORS for OnlyOffice document editor iframe
     onlyoffice-cors:
       headers:

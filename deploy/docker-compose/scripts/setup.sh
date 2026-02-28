@@ -82,6 +82,13 @@ check_existing_env() {
     if [[ "${OVERWRITE,,}" != "y" ]]; then
       echo ""
       echo "  Keeping existing .env. Starting stack with current configuration..."
+      # Source .env so resolve_realm_config can read the variable values.
+      # Without this, resolved config files (realm-resolved.json, local-resolved.json,
+      # etc.) would be missing on a fresh clone where .env was transferred from
+      # another server — causing service startup failures.
+      # shellcheck disable=SC1090
+      source "$ENV_FILE"
+      resolve_realm_config
       start_stack
       exit 0
     fi
@@ -135,6 +142,8 @@ generate_secrets() {
   KEYCLOAK_CLIENT_SECRET=$(gen_hex)
   ONLYOFFICE_DB_PASSWORD=$(gen_password)
   ONLYOFFICE_JWT_SECRET=$(gen_hex)
+  # Dedicated MinIO service account for the web app (least-privilege: sovereign-documents only)
+  MINIO_APP_SECRET_KEY=$(gen_hex)
 
   ok "All passwords generated (64-bit entropy minimum)"
 }
@@ -178,6 +187,11 @@ KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
 # OnlyOffice
 ONLYOFFICE_DB_PASSWORD=${ONLYOFFICE_DB_PASSWORD}
 ONLYOFFICE_JWT_SECRET=${ONLYOFFICE_JWT_SECRET}
+
+# MinIO app service account (least-privilege: read/write sovereign-documents bucket only)
+# The web app uses these credentials instead of the root MinIO credentials.
+MINIO_APP_ACCESS_KEY=sovereign-app
+MINIO_APP_SECRET_KEY=${MINIO_APP_SECRET_KEY}
 
 # Web app image
 WEB_IMAGE_TAG=latest

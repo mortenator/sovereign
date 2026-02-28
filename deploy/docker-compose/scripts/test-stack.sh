@@ -133,11 +133,20 @@ done
 # ─────────────────────────────────────────────
 section "HTTP Endpoint Checks"
 
+if ! command -v curl &>/dev/null; then
+  warn "curl not found — skipping HTTP endpoint checks. Install with: sudo apt install curl"
+fi
+
 check_http() {
   local LABEL=$1
   local URL=$2
   local EXPECTED_CODE=${3:-200}
   local EXTRA_FLAGS=${4:-}
+
+  if ! command -v curl &>/dev/null; then
+    warn "$LABEL — skipped (curl not installed)"
+    return 0
+  fi
 
   local RESPONSE_CODE
   # shellcheck disable=SC2086
