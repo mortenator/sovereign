@@ -160,12 +160,22 @@ compress_backup() {
   SIZE=$(du -sh "$ARCHIVE" | cut -f1)
   ok "Archive created: $ARCHIVE ($SIZE)"
 
+  # Generate SHA256 checksum
+  local CHECKSUM_FILE="${ARCHIVE}.sha256"
+  sha256sum "$ARCHIVE" > "$CHECKSUM_FILE"
+  chmod 600 "$CHECKSUM_FILE"
+  local CHECKSUM
+  CHECKSUM=$(awk '{print $1}' "$CHECKSUM_FILE")
+  ok "SHA256: $CHECKSUM"
+
   # Remove uncompressed directory
   rm -rf "$BACKUP_PATH"
 
   # Export for S3 upload
   ARCHIVE_PATH="$ARCHIVE"
   ARCHIVE_FILE="${BACKUP_NAME}.tar.gz"
+  CHECKSUM_PATH="$CHECKSUM_FILE"
+  CHECKSUM_FILE_NAME="${BACKUP_NAME}.tar.gz.sha256"
 }
 
 # ─────────────────────────────────────────────
@@ -216,12 +226,14 @@ EOF
 
   docker run --rm \
     -v "$ARCHIVE_PATH:/backup/$ARCHIVE_FILE:ro" \
+    -v "$CHECKSUM_PATH:/backup/$CHECKSUM_FILE_NAME:ro" \
     -v "$MC_CONF_DIR:/root/.mc:ro" \
     minio/mc:RELEASE.2024-03-13T23-51-57Z \
-    sh -c "mc cp /backup/${ARCHIVE_FILE} backup-target/${S3_BUCKET}/${UPLOAD_DATE}/${ARCHIVE_FILE} && echo 'Upload complete'"
+    sh -c "mc cp /backup/${ARCHIVE_FILE} backup-target/${S3_BUCKET}/${UPLOAD_DATE}/${ARCHIVE_FILE} && mc cp /backup/${CHECKSUM_FILE_NAME} backup-target/${S3_BUCKET}/${UPLOAD_DATE}/${CHECKSUM_FILE_NAME} && echo 'Upload complete'"
 
   rm -rf "$MC_CONF_DIR"
   ok "Uploaded: s3://$S3_BUCKET/$UPLOAD_DATE/$ARCHIVE_FILE"
+  ok "Uploaded: s3://$S3_BUCKET/$UPLOAD_DATE/$CHECKSUM_FILE_NAME"
 }
 
 # ─────────────────────────────────────────────

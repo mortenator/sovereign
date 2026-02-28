@@ -13,9 +13,10 @@ api:
 
 # ─────────────────────────────────────────────
 # Ping endpoint — used by Docker health check
+# Uses a dedicated internal entrypoint to avoid the HTTP→HTTPS redirect loop.
 # ─────────────────────────────────────────────
 ping:
-  entryPoint: web
+  entryPoint: traefik-internal
 
 # ─────────────────────────────────────────────
 # Entry Points
@@ -33,6 +34,12 @@ entryPoints:
 
   websecure:
     address: ":443"
+
+  # Internal-only entrypoint for ping healthcheck.
+  # Avoids the HTTP→HTTPS redirect loop that would block Docker healthchecks
+  # before a TLS certificate has been issued.
+  traefik-internal:
+    address: ":8082"
 
 # ─────────────────────────────────────────────
 # Providers

@@ -105,15 +105,8 @@ gather_config() {
   read -r ACME_EMAIL
   [[ -z "$ACME_EMAIL" ]] && fail "Admin email is required."
 
-  ask "Use Let's Encrypt TLS? Requires domain pointing to this server. [Y/n]:"
-  read -r USE_TLS
-  if [[ "${USE_TLS,,}" == "n" ]]; then
-    TLS_ENABLED=false
-    warn "TLS disabled. Do NOT use this in production."
-  else
-    TLS_ENABLED=true
-    ok "Let's Encrypt TLS will be configured for: $DOMAIN"
-  fi
+  warn "Ensure ports 80 and 443 are open and your domain resolves to this server."
+  ok "Let's Encrypt TLS will be configured for: $DOMAIN"
 
   ask "Data region (default: EU-DE):"
   read -r DATA_REGION

@@ -32,7 +32,8 @@
   "accessTokenLifespan": 300,
   "accessTokenLifespanForImplicitFlow": 900,
   "offlineSessionIdleTimeout": 2592000,
-  "offlineSessionMaxLifespanEnabled": false,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 2592000,
 
   "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
 
@@ -59,6 +60,17 @@
         "name": "viewer",
         "description": "Read-only access to documents",
         "composite": false,
+        "clientRole": false,
+        "containerId": "sovereign"
+      },
+      {
+        "id": "a2f43b7c-1e8d-4f6a-9c0b-3d5e7f8a2b1c",
+        "name": "default-roles-sovereign",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "composites": {
+          "realm": ["viewer"]
+        },
         "clientRole": false,
         "containerId": "sovereign"
       }
@@ -93,7 +105,17 @@
     }
   },
 
-  "defaultRoles": ["viewer"],
+  "defaultRole": {
+    "id": "a2f43b7c-1e8d-4f6a-9c0b-3d5e7f8a2b1c",
+    "name": "default-roles-sovereign",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "composites": {
+      "realm": ["viewer"]
+    },
+    "clientRole": false,
+    "containerId": "sovereign"
+  },
 
   "clients": [
     {

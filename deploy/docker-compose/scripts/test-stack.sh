@@ -191,7 +191,7 @@ if docker exec sovereign-minio mc ready local 2>/dev/null; then
   pass "MinIO — mc ready local"
 else
   warn "MinIO — mc ready local (mc may not be in PATH, checking via curl)"
-  if docker exec sovereign-minio curl -sf http://localhost:9000/minio/health/live 2>/dev/null | grep -qi "ok\|204"; then
+  if docker exec sovereign-minio curl -sf http://localhost:9000/minio/health/live -o /dev/null 2>/dev/null; then
     pass "MinIO — /minio/health/live"
   else
     fail "MinIO — health check"
