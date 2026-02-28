@@ -38,7 +38,19 @@ jobs:
             echo "  git add tests/docx-compat/reference/ && git commit -m 'chore: add reference images'"
             exit 1
           fi
-          echo "Reference images OK: $COUNT PNG file(s) committed."
+          # Guard against placeholder images: if every PNG has the same hash, they are
+          # not real renders and the pixel-diff gate is meaningless.
+          UNIQUE=$(find "$REFDIR" -name "*.png" | xargs openssl dgst -md5 | awk '{print $2}' | sort -u | wc -l | tr -d ' ')
+          echo "Unique image hashes: $UNIQUE / $COUNT"
+          if [ "$UNIQUE" -eq 1 ] && [ "$COUNT" -gt 1 ]; then
+            echo ""
+            echo "ERROR: All $COUNT reference images are identical — these are placeholder files, not real OO renders."
+            echo "The pixel-diff gate is meaningless until real screenshots are committed."
+            echo ""
+            echo "Regenerate reference images (see above instructions) and commit the results."
+            exit 1
+          fi
+          echo "Reference images OK: $COUNT PNG file(s), $UNIQUE unique hash(es)."
 
   test:
     name: DOCX Compatibility Tests
@@ -107,7 +119,16 @@ jobs:
         # 127.0.0.1 inside the OO container is the container's own loopback, not the
         # runner's. We must advertise our file server using the Docker bridge gateway IP
         # so OO can reach it. The FILE_SERVER_HOST env var is consumed by run-tests.ts.
-        run: echo "FILE_SERVER_HOST=$(ip route show | awk '/default/ {print $3}')" >> $GITHUB_ENV
+        run: |
+          GW=$(ip route show | awk '/default/ {print $3; exit}')
+          if [ -z "$GW" ]; then
+            echo "ERROR: Could not determine Docker bridge gateway IP from 'ip route show'."
+            echo "Output of 'ip route show':"
+            ip route show
+            exit 1
+          fi
+          echo "FILE_SERVER_HOST=$GW" >> $GITHUB_ENV
+          echo "Docker host gateway: $GW"
 
       - name: Wait for OnlyOffice to be ready
         run: |

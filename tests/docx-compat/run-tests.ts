@@ -181,7 +181,22 @@ function compareImages(
   const actual = PNG.sync.read(fs.readFileSync(actualPath));
   const reference = PNG.sync.read(fs.readFileSync(referencePath));
 
-  // Resize to the smaller of the two dimensions
+  // Fail if dimensions differ by more than 10% — a large size mismatch means OO rendered
+  // at a different zoom/resolution and cropping to the overlap region would miss missing
+  // content entirely (e.g. a document missing its bottom third still passes at 0% diff).
+  const widthRatio = actual.width / reference.width;
+  const heightRatio = actual.height / reference.height;
+  if (widthRatio < 0.9 || widthRatio > 1.1 || heightRatio < 0.9 || heightRatio > 1.1) {
+    console.log(
+      `    [error] Dimension mismatch: actual ${actual.width}×${actual.height} vs reference ${reference.width}×${reference.height} (>10% difference)`
+    );
+    // Write an empty diff image so the artifact path is still valid
+    const emptyDiff = new PNG({ width: reference.width, height: reference.height });
+    fs.writeFileSync(diffPath, PNG.sync.write(emptyDiff));
+    return { diffPercent: 1, passed: false };
+  }
+
+  // Compare over the intersection of both dimensions
   const width = Math.min(actual.width, reference.width);
   const height = Math.min(actual.height, reference.height);
 
@@ -411,7 +426,9 @@ async function checkOnlyOffice(): Promise<boolean> {
     };
 
     const req = http.request(options, (res) => {
-      resolve(res.statusCode !== undefined && res.statusCode < 500);
+      // Require explicit 200 — treating 404 as "healthy" during startup could allow
+      // tests to run before OO is actually ready to serve documents.
+      resolve(res.statusCode === 200);
     });
 
     req.on("error", () => resolve(false));

@@ -214,7 +214,7 @@ async function gen03ComplexTable(): Promise<void> {
             new TableRow({ children: [d("Mexico"), d("$0.8M"), d("$0.9M"), d("$1.0M"), d("$1.2M")] }),
             new TableRow({ children: [
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Europe", bold: true })], alignment: AlignmentType.CENTER })], rowSpan: 2, shading: { type: ShadingType.SOLID, color: "FFF9C4", fill: "FFF9C4" }, verticalAlign: VerticalAlign.CENTER }),
-              d("UK", true), d("$2.1M", true), d("$2.3M", true), d("$2.7M", true),
+              d("$1.9M", true), d("$2.1M", true), d("$2.3M", true), d("$2.7M", true),
             ]}),
             new TableRow({ children: [d("$1.8M"), d("$2.0M"), d("$2.2M"), d("$1.5M")] }),
             new TableRow({ children: [

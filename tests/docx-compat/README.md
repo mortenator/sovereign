@@ -188,11 +188,10 @@ The workflow:
 1. Starts OnlyOffice Document Server as a service container
 2. Installs Node.js dependencies + Playwright
 3. Generates the corpus
-4. Generates reference images (if not in git)
-5. Runs all tests
-6. Generates HTML report
-7. Uploads `results/` and `reference/` as artifacts (30-day retention)
-8. Exits non-zero if thresholds not met
+4. Runs all tests (reference images must already be committed — CI fails if none exist)
+5. Generates HTML report
+6. Uploads `results/` and `reference/` as artifacts (30-day retention)
+7. Exits non-zero if thresholds not met
 
 ## Architecture Notes
 
