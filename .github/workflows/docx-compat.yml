@@ -88,6 +88,10 @@ jobs:
       - name: Generate reference images (critical + high tiers)
         working-directory: tests/docx-compat
         run: npx ts-node run-tests.ts --generate-references
+        # NOTE: References are generated and immediately compared in the same run.
+        # This means the first CI run always passes pixel-diff (screenshot vs itself).
+        # The real value is catching regressions on subsequent runs when OO version or
+        # rendering changes. To persist baselines across runs, commit reference/ to git.
 
       - name: Run compatibility tests
         working-directory: tests/docx-compat
