@@ -127,6 +127,7 @@ services:
       traefik.http.routers.minio-console.entrypoints: "websecure"
       traefik.http.routers.minio-console.tls.certresolver: "letsencrypt"
       traefik.http.routers.minio-console.service: "minio-console-svc"
+      traefik.http.routers.minio-console.middlewares: "secure-headers@file,auth-rate-limit@file"
       traefik.http.services.minio-console-svc.loadbalancer.server.port: "9001"
 
   # ─────────────────────────────────────────────
@@ -163,7 +164,9 @@ services:
     image: quay.io/keycloak/keycloak:23.0.7
     container_name: sovereign-keycloak
     restart: unless-stopped
-    command: start --import-realm --optimized
+    # Drop --optimized: the base keycloak image is not pre-built; using --optimized
+    # skips kc.sh build, silently ignoring KC_DB/KC_PROXY/KC_HOSTNAME_STRICT settings.
+    command: start --import-realm
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -177,6 +180,7 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY: edge
       KC_LOG_LEVEL: INFO
+      KC_HEALTH_ENABLED: "true"
       # Disable telemetry
       KC_FEATURES_DISABLED: "admin-fine-grained-authz"
     volumes:
@@ -200,6 +204,7 @@ services:
       traefik.http.routers.keycloak.entrypoints: "websecure"
       traefik.http.routers.keycloak.tls.certresolver: "letsencrypt"
       traefik.http.routers.keycloak.service: "keycloak-svc"
+      traefik.http.routers.keycloak.middlewares: "secure-headers@file,auth-rate-limit@file"
       traefik.http.services.keycloak-svc.loadbalancer.server.port: "8080"
 
   # ─────────────────────────────────────────────
@@ -243,7 +248,8 @@ services:
     networks:
       - sovereign-net
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:80/healthcheck"]
+      # Use wget — curl is not guaranteed to be present in the OnlyOffice image.
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:80/healthcheck | grep -qi true || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 5
@@ -255,10 +261,9 @@ services:
       traefik.http.routers.onlyoffice.entrypoints: "websecure"
       traefik.http.routers.onlyoffice.tls.certresolver: "letsencrypt"
       traefik.http.routers.onlyoffice.service: "onlyoffice-svc"
+      # Middlewares from file provider: security headers, CORS, and forwarded-proto for WebSocket
+      traefik.http.routers.onlyoffice.middlewares: "secure-headers@file,onlyoffice-cors@file,onlyoffice-forwarded-proto@file"
       traefik.http.services.onlyoffice-svc.loadbalancer.server.port: "80"
-      # Required headers for WebSocket / document collaboration
-      traefik.http.middlewares.onlyoffice-headers.headers.customrequestheaders.X-Forwarded-Proto: "https"
-      traefik.http.routers.onlyoffice.middlewares: "onlyoffice-headers"
 
   # ─────────────────────────────────────────────
   # Sovereign Web — Frontend Application
@@ -308,6 +313,7 @@ services:
       traefik.http.routers.web.entrypoints: "websecure"
       traefik.http.routers.web.tls.certresolver: "letsencrypt"
       traefik.http.routers.web.service: "web-svc"
+      traefik.http.routers.web.middlewares: "secure-headers@file,rate-limit@file,gzip-compress@file"
       traefik.http.services.web-svc.loadbalancer.server.port: "3000"
 
 # ─────────────────────────────────────────────

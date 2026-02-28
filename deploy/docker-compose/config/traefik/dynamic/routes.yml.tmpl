@@ -5,8 +5,13 @@
 # from this file using envsubst, replacing ${DOMAIN} with the actual domain.
 # Traefik's file provider ignores .tmpl files.
 #
-# Most routing is defined via Docker labels in docker-compose.yml.
-# This file adds shared middleware and catches edge cases.
+# ROUTING STRATEGY: All service routers are defined exclusively via Docker labels
+# in docker-compose.yml, which reference the shared middleware below using the
+# @file provider suffix (e.g. "secure-headers@file"). This avoids duplicate
+# routers from two providers competing for the same Host() rule — a condition
+# that causes undefined routing behavior in Traefik v3.
+#
+# This file provides: shared middleware + HTTP→HTTPS catchall redirect only.
 
 # ─────────────────────────────────────────────
 # HTTP Configuration
@@ -82,7 +87,9 @@ http:
           X-Forwarded-Proto: "https"
 
   # ─────────────────────────────────────────────
-  # Routers — supplement Docker label routing
+  # Routers — HTTP→HTTPS catchall only.
+  # Service-specific routers live in docker-compose.yml labels and reference
+  # the middleware above via the @file provider suffix.
   # ─────────────────────────────────────────────
   routers:
 
@@ -96,97 +103,14 @@ http:
       service: noop
       priority: 1
 
-    # Web frontend
-    web-secure:
-      rule: "Host(`${DOMAIN}`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - secure-headers
-        - rate-limit
-        - gzip-compress
-      service: web-backend
-      tls:
-        certResolver: letsencrypt
-
-    # Auth (Keycloak) — stricter rate limiting
-    keycloak-secure:
-      rule: "Host(`auth.${DOMAIN}`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - secure-headers
-        - auth-rate-limit
-      service: keycloak-backend
-      tls:
-        certResolver: letsencrypt
-
-    # OnlyOffice Document Server
-    onlyoffice-secure:
-      rule: "Host(`docs.${DOMAIN}`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - secure-headers
-        - onlyoffice-cors
-        - onlyoffice-forwarded-proto
-      service: onlyoffice-backend
-      tls:
-        certResolver: letsencrypt
-
-    # MinIO storage console
-    minio-secure:
-      rule: "Host(`storage.${DOMAIN}`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - secure-headers
-        - auth-rate-limit
-      service: minio-backend
-      tls:
-        certResolver: letsencrypt
-
   # ─────────────────────────────────────────────
-  # Services — backend definitions
+  # Services
   # ─────────────────────────────────────────────
   services:
 
     noop:
       loadBalancer:
         servers: []
-
-    web-backend:
-      loadBalancer:
-        servers:
-          - url: "http://web:3000"
-        healthCheck:
-          path: /api/health
-          interval: 30s
-          timeout: 5s
-
-    keycloak-backend:
-      loadBalancer:
-        servers:
-          - url: "http://keycloak:8080"
-        healthCheck:
-          path: /health/ready
-          interval: 30s
-          timeout: 5s
-        passHostHeader: true
-
-    onlyoffice-backend:
-      loadBalancer:
-        servers:
-          - url: "http://onlyoffice:80"
-        healthCheck:
-          path: /healthcheck
-          interval: 30s
-          timeout: 10s
-
-    minio-backend:
-      loadBalancer:
-        servers:
-          - url: "http://minio:9001"
 
 # ─────────────────────────────────────────────
 # TLS Configuration

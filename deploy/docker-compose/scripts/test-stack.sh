@@ -26,13 +26,15 @@ DOMAIN="${DOMAIN:-localhost}"
 START_STACK=false
 TIMEOUT=300   # Wait up to 5 minutes for health checks
 
-# Parse args
-for arg in "$@"; do
-  case $arg in
-    --start)  START_STACK=true ;;
-    --domain=*) DOMAIN="${arg#*=}" ;;
-    --domain) shift; DOMAIN="$1" ;;
+# Parse args — use while+shift so --domain VALUE (two-token form) works correctly.
+# A for-loop iterator is not advanced by shift, so shift inside for is a no-op.
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --start)    START_STACK=true ;;
+    --domain=*) DOMAIN="${1#*=}" ;;
+    --domain)   shift; DOMAIN="${1:-}" ;;
   esac
+  shift
 done
 
 # ─────────────────────────────────────────────

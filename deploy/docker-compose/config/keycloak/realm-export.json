@@ -105,12 +105,10 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "${KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
-        "https://${DOMAIN}/*",
-        "http://localhost:3000/*"
+        "https://${DOMAIN}/*"
       ],
       "webOrigins": [
-        "https://${DOMAIN}",
-        "http://localhost:3000"
+        "https://${DOMAIN}"
       ],
       "protocol": "openid-connect",
       "publicClient": false,
@@ -126,7 +124,7 @@
         "saml.multivalued.roles": "false",
         "saml.encrypt": "false",
         "backchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "https://${DOMAIN}/*##http://localhost:3000/*",
+        "post.logout.redirect.uris": "https://${DOMAIN}/*",
         "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "oidc.ciba.grant.enabled": "false",

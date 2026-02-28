@@ -99,6 +99,7 @@ backup_postgres() {
         --format custom \
         --compress 9 \
         --no-password \
+        --lock-wait-timeout=60000 \
         "$DB" \
       > "$PG_BACKUP_DIR/${DB}.dump"
 
@@ -128,16 +129,17 @@ backup_minio() {
   local MINIO_BACKUP_DIR="$BACKUP_PATH/minio"
   mkdir -p "$MINIO_BACKUP_DIR"
 
-  # Use mc (MinIO client) inside the minio container
+  # Use mc (MinIO client) via docker. Pass credentials as environment variables
+  # (not CLI args) so they are not exposed in the process list.
   docker run --rm \
     --network sovereign-net \
     -v "$MINIO_BACKUP_DIR:/backup" \
+    -e MINIO_ROOT_USER="${MINIO_ROOT_USER}" \
+    -e MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD}" \
     minio/mc:RELEASE.2024-03-13T23-51-57Z \
-    sh -c "
-      mc alias set sovereign http://minio:9000 '${MINIO_ROOT_USER}' '${MINIO_ROOT_PASSWORD}' --quiet &&
+    sh -c 'mc alias set sovereign http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" --quiet &&
       mc mirror --overwrite sovereign/sovereign-documents /backup/ &&
-      echo 'MinIO mirror complete'
-    "
+      echo MinIO mirror complete'
 
   local COUNT
   COUNT=$(find "$MINIO_BACKUP_DIR" -type f | wc -l)
@@ -188,16 +190,38 @@ upload_to_s3() {
   # here before upload if your S3 provider does not enforce SSE.
   info "Uploading to S3-compatible storage: $S3_ENDPOINT/$S3_BUCKET"
 
+  # Write credentials to a temp config file so they are not exposed in the
+  # process list (which would happen if passed as mc alias set CLI arguments).
+  local MC_CONF_DIR
+  MC_CONF_DIR=$(mktemp -d)
+  mkdir -p "$MC_CONF_DIR"
+  cat > "$MC_CONF_DIR/config.json" <<EOF
+{
+  "version": "10",
+  "aliases": {
+    "backup-target": {
+      "url": "${S3_ENDPOINT}",
+      "accessKey": "${S3_ACCESS_KEY}",
+      "secretKey": "${S3_SECRET_KEY}",
+      "api": "s3v4",
+      "path": "auto"
+    }
+  }
+}
+EOF
+  chmod 600 "$MC_CONF_DIR/config.json"
+
+  local UPLOAD_DATE
+  UPLOAD_DATE=$(date +%Y/%m)
+
   docker run --rm \
     -v "$ARCHIVE_PATH:/backup/$ARCHIVE_FILE:ro" \
+    -v "$MC_CONF_DIR:/root/.mc:ro" \
     minio/mc:RELEASE.2024-03-13T23-51-57Z \
-    sh -c "
-      mc alias set backup-target '${S3_ENDPOINT}' '${S3_ACCESS_KEY}' '${S3_SECRET_KEY}' --quiet &&
-      mc cp /backup/${ARCHIVE_FILE} backup-target/${S3_BUCKET}/$(date +%Y/%m)/${ARCHIVE_FILE} &&
-      echo 'Upload complete'
-    "
+    sh -c "mc cp /backup/${ARCHIVE_FILE} backup-target/${S3_BUCKET}/${UPLOAD_DATE}/${ARCHIVE_FILE} && echo 'Upload complete'"
 
-  ok "Uploaded: s3://$S3_BUCKET/$(date +%Y/%m)/$ARCHIVE_FILE"
+  rm -rf "$MC_CONF_DIR"
+  ok "Uploaded: s3://$S3_BUCKET/$UPLOAD_DATE/$ARCHIVE_FILE"
 }
 
 # ─────────────────────────────────────────────
