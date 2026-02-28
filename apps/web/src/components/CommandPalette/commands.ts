@@ -1,0 +1,270 @@
+import { execOOMethod } from '@/lib/onlyoffice'
+
+export interface CommandItem {
+  id: string
+  label: string
+  description?: string
+  shortcut?: string
+  category: string
+  action: () => void
+  keywords?: string[]
+}
+
+export function buildCommands(callbacks: {
+  save: () => void
+  saveAs: () => void
+  print: () => void
+  find: () => void
+  toggleDarkMode: () => void
+  toggleOutline: () => void
+  toggleComments: () => void
+  newDocument: () => void
+  setZoom: (zoom: number) => void
+}): CommandItem[] {
+  return [
+    // Formatting — OO connector PascalCase method names (not document.execCommand names)
+    {
+      id: 'format-bold',
+      label: 'Bold',
+      description: 'Toggle bold formatting',
+      shortcut: '⌘B',
+      category: 'Format',
+      action: () => execOOMethod('SetBold'),
+      keywords: ['bold', 'strong', 'format'],
+    },
+    {
+      id: 'format-italic',
+      label: 'Italic',
+      description: 'Toggle italic formatting',
+      shortcut: '⌘I',
+      category: 'Format',
+      action: () => execOOMethod('SetItalic'),
+      keywords: ['italic', 'em', 'format'],
+    },
+    {
+      id: 'format-underline',
+      label: 'Underline',
+      description: 'Toggle underline',
+      shortcut: '⌘U',
+      category: 'Format',
+      action: () => execOOMethod('SetUnderline'),
+      keywords: ['underline', 'format'],
+    },
+    {
+      id: 'format-strikethrough',
+      label: 'Strikethrough',
+      description: 'Toggle strikethrough',
+      category: 'Format',
+      action: () => execOOMethod('SetStrikeout'),
+      keywords: ['strikethrough', 'strike', 'format'],
+    },
+    {
+      id: 'format-clear',
+      label: 'Clear Formatting',
+      description: 'Remove all formatting',
+      category: 'Format',
+      action: () => execOOMethod('RemoveFormat'),
+      keywords: ['clear', 'reset', 'format'],
+    },
+
+    // Alignment — SetParagraphAlign with direction string
+    {
+      id: 'align-left',
+      label: 'Align Left',
+      shortcut: '⌘L',
+      category: 'Format',
+      action: () => execOOMethod('SetParagraphAlign', null, 'left'),
+      keywords: ['align', 'left'],
+    },
+    {
+      id: 'align-center',
+      label: 'Center',
+      shortcut: '⌘E',
+      category: 'Format',
+      action: () => execOOMethod('SetParagraphAlign', null, 'center'),
+      keywords: ['align', 'center'],
+    },
+    {
+      id: 'align-right',
+      label: 'Align Right',
+      shortcut: '⌘R',
+      category: 'Format',
+      action: () => execOOMethod('SetParagraphAlign', null, 'right'),
+      keywords: ['align', 'right'],
+    },
+    {
+      id: 'align-justify',
+      label: 'Justify',
+      shortcut: '⌘J',
+      category: 'Format',
+      action: () => execOOMethod('SetParagraphAlign', null, 'justify'),
+      keywords: ['align', 'justify', 'full'],
+    },
+
+    // Styles — SetStyle with OO style name object
+    {
+      id: 'style-normal',
+      label: 'Normal Text',
+      description: 'Apply Normal paragraph style',
+      shortcut: '⌥0',
+      category: 'Styles',
+      action: () => execOOMethod('SetStyle', null, { Name: 'Normal' }),
+      keywords: ['normal', 'paragraph', 'style'],
+    },
+    {
+      id: 'style-h1',
+      label: 'Heading 1',
+      description: 'Apply Heading 1 style',
+      shortcut: '⌥1',
+      category: 'Styles',
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 1' }),
+      keywords: ['heading', 'h1', 'title'],
+    },
+    {
+      id: 'style-h2',
+      label: 'Heading 2',
+      description: 'Apply Heading 2 style',
+      shortcut: '⌥2',
+      category: 'Styles',
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 2' }),
+      keywords: ['heading', 'h2', 'subtitle'],
+    },
+    {
+      id: 'style-h3',
+      label: 'Heading 3',
+      description: 'Apply Heading 3 style',
+      shortcut: '⌥3',
+      category: 'Styles',
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 3' }),
+      keywords: ['heading', 'h3'],
+    },
+
+    // Lists
+    {
+      id: 'insert-bullets',
+      label: 'Bullet List',
+      description: 'Insert unordered list',
+      category: 'Insert',
+      action: () => execOOMethod('SetBullet'),
+      keywords: ['bullet', 'list', 'unordered'],
+    },
+    {
+      id: 'insert-numbering',
+      label: 'Numbered List',
+      description: 'Insert ordered list',
+      category: 'Insert',
+      action: () => execOOMethod('SetNum'),
+      keywords: ['number', 'list', 'ordered'],
+    },
+
+    // File
+    {
+      id: 'file-save',
+      label: 'Save',
+      description: 'Save the current document',
+      shortcut: '⌘S',
+      category: 'File',
+      action: callbacks.save,
+      keywords: ['save', 'file'],
+    },
+    {
+      id: 'file-save-as',
+      label: 'Save As',
+      description: 'Save document with a new name',
+      shortcut: '⌘⇧S',
+      category: 'File',
+      action: callbacks.saveAs,
+      keywords: ['save', 'as', 'download'],
+    },
+    {
+      id: 'file-print',
+      label: 'Print',
+      description: 'Print the document',
+      shortcut: '⌘P',
+      category: 'File',
+      action: callbacks.print,
+      keywords: ['print', 'file'],
+    },
+    {
+      id: 'file-export-pdf',
+      label: 'Export as PDF',
+      description: 'Download document as PDF',
+      category: 'File',
+      action: () => window.editor?.downloadAs('pdf'),
+      keywords: ['export', 'pdf', 'download'],
+    },
+    {
+      id: 'file-new',
+      label: 'New Document',
+      description: 'Create a new document',
+      category: 'File',
+      action: callbacks.newDocument,
+      keywords: ['new', 'create', 'document'],
+    },
+
+    // Navigation
+    {
+      id: 'nav-find',
+      label: 'Find',
+      description: 'Open find panel',
+      shortcut: '⌘F',
+      category: 'Navigation',
+      action: callbacks.find,
+      keywords: ['find', 'search'],
+    },
+    {
+      id: 'nav-outline',
+      label: 'Toggle Outline',
+      description: 'Show/hide document outline',
+      category: 'Navigation',
+      action: callbacks.toggleOutline,
+      keywords: ['outline', 'navigation', 'sidebar'],
+    },
+    {
+      id: 'nav-comments',
+      label: 'Toggle Comments',
+      description: 'Show/hide comments panel',
+      category: 'Navigation',
+      action: callbacks.toggleComments,
+      keywords: ['comments', 'review', 'sidebar'],
+    },
+
+    // View
+    {
+      id: 'view-dark-mode',
+      label: 'Toggle Dark Mode',
+      description: 'Switch between light and dark theme',
+      category: 'View',
+      action: callbacks.toggleDarkMode,
+      keywords: ['dark', 'light', 'theme', 'mode'],
+    },
+    {
+      id: 'view-zoom-75',
+      label: 'Zoom 75%',
+      category: 'View',
+      action: () => callbacks.setZoom(75),
+      keywords: ['zoom', '75'],
+    },
+    {
+      id: 'view-zoom-100',
+      label: 'Zoom 100%',
+      category: 'View',
+      action: () => callbacks.setZoom(100),
+      keywords: ['zoom', '100', 'default'],
+    },
+    {
+      id: 'view-zoom-125',
+      label: 'Zoom 125%',
+      category: 'View',
+      action: () => callbacks.setZoom(125),
+      keywords: ['zoom', '125'],
+    },
+    {
+      id: 'view-zoom-150',
+      label: 'Zoom 150%',
+      category: 'View',
+      action: () => callbacks.setZoom(150),
+      keywords: ['zoom', '150'],
+    },
+  ]
+}
