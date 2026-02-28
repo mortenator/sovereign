@@ -347,6 +347,14 @@ async function main(): Promise<void> {
 
   const data: ResultsFile = JSON.parse(fs.readFileSync(RESULTS_JSON, "utf8"));
 
+  // If every test was skipped, no reference images existed — fail loudly
+  const totalEvaluatedEarly = data.results.filter((r) => r.status !== "skip").length;
+  if (totalEvaluatedEarly === 0) {
+    console.error("\nERROR: All tests were skipped — no reference images found.");
+    console.error("Commit reference images first. See the check-references CI job for instructions.");
+    process.exit(1);
+  }
+
   // Compute tier summaries
   const criticalTier = computeTier(data.results, "critical", CRITICAL_PASS_THRESHOLD);
   const highTier = computeTier(data.results, "high", HIGH_PASS_THRESHOLD);

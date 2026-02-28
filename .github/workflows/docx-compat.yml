@@ -11,8 +11,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-references:
+    name: Check Reference Images Committed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check reference PNG files exist
+        run: |
+          REFDIR="tests/docx-compat/reference"
+          COUNT=$(find "$REFDIR" -name "*.png" 2>/dev/null | wc -l | tr -d ' ')
+          echo "Reference PNG files found: $COUNT"
+          if [ "$COUNT" -eq 0 ]; then
+            echo ""
+            echo "ERROR: No reference images committed. CI cannot run pixel-diff tests."
+            echo ""
+            echo "To fix, run locally:"
+            echo "  cd tests/docx-compat && npm ci && npm run generate-corpus"
+            echo "  docker run -d -p 8080:80 --name oo-ref onlyoffice/documentserver:7.5"
+            echo "  sleep 60  # Wait for OO to start"
+            echo "  npx ts-node run-tests.ts --generate-references"
+            echo "  docker stop oo-ref && docker rm oo-ref"
+            echo "  git add tests/docx-compat/reference/ && git commit -m 'chore: add reference images'"
+            exit 1
+          fi
+          echo "Reference images OK: $COUNT PNG file(s) committed."
+
   test:
     name: DOCX Compatibility Tests
+    needs: check-references
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -91,14 +121,6 @@ jobs:
             sleep 10
           done
           curl -sf http://localhost:8080/healthcheck || (echo "OnlyOffice not ready after 5 minutes" && exit 1)
-
-      - name: Generate reference images (critical + high tiers)
-        working-directory: tests/docx-compat
-        run: npx ts-node run-tests.ts --generate-references
-        # NOTE: References are generated and immediately compared in the same run.
-        # This means the first CI run always passes pixel-diff (screenshot vs itself).
-        # The real value is catching regressions on subsequent runs when OO version or
-        # rendering changes. To persist baselines across runs, commit reference/ to git.
 
       - name: Run compatibility tests
         working-directory: tests/docx-compat

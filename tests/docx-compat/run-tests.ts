@@ -156,7 +156,7 @@ async function waitForDocumentReady(page: Page, timeoutMs: number): Promise<void
     { timeout: timeoutMs }
   ).catch(() => {
     // Fallback: just wait a fixed time if the selector approach doesn't work
-    console.log("    [warn] Could not detect document ready via DOM — waiting 5s");
+    console.log("    [warn] Could not detect document ready via DOM — continuing after settle delay");
   });
 
   // Extra settle time for rendering

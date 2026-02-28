@@ -216,7 +216,7 @@ async function gen03ComplexTable(): Promise<void> {
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Europe", bold: true })], alignment: AlignmentType.CENTER })], rowSpan: 2, shading: { type: ShadingType.SOLID, color: "FFF9C4", fill: "FFF9C4" }, verticalAlign: VerticalAlign.CENTER }),
               d("UK", true), d("$2.1M", true), d("$2.3M", true), d("$2.7M", true),
             ]}),
-            new TableRow({ children: [d("Germany"), d("$1.8M"), d("$2.0M"), d("$2.2M")] }),
+            new TableRow({ children: [d("$1.8M"), d("$2.0M"), d("$2.2M"), d("$1.5M")] }),
             new TableRow({ children: [
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "TOTAL", bold: true })], alignment: AlignmentType.RIGHT })], shading: dark }),
               tot("$10.0M"), tot("$11.3M"), tot("$12.1M"), tot("$13.9M"),
@@ -339,6 +339,7 @@ async function gen07Comments(): Promise<void> {
       children: [
         new Paragraph({ text: "Document Review: System Design Proposal", heading: HeadingLevel.HEADING_1 }),
         new Paragraph({ children: [new CommentRangeStart(0), new TextRun("The proposed architecture leverages microservices to achieve horizontal scalability. Each service is independently deployable and communicates via REST APIs."), new CommentRangeEnd(0), new CommentReference(0)] }),
+        new Paragraph({ children: [new CommentRangeStart(1), new TextRun("The microservices approach enables independent scaling of each component, reducing operational costs during peak load periods."), new CommentRangeEnd(1), new CommentReference(1)] }),
         new Paragraph({ children: [new CommentRangeStart(2), new TextRun("Target response time is 150ms at the 99th percentile under 10,000 concurrent users. Memory footprint per instance should not exceed 512MB."), new CommentRangeEnd(2), new CommentReference(2)] }),
         new Paragraph({ text: "Data Model", heading: HeadingLevel.HEADING_2 }),
         new Paragraph({ children: [new CommentRangeStart(3), new TextRun("The primary data model uses a document-centric approach with JSONB storage in PostgreSQL for flexible schema evolution."), new CommentRangeEnd(3), new CommentReference(3)] }),
