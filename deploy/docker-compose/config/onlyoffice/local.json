@@ -7,7 +7,7 @@
         "dbPort": "5432",
         "dbName": "onlyoffice",
         "dbUser": "onlyoffice",
-        "dbPass": ""
+        "dbPass": "${ONLYOFFICE_DB_PASSWORD}"
       },
       "redis": {
         "host": "redis",
@@ -41,7 +41,7 @@
     },
     "storage": {
       "fs": {
-        "secretString": "",
+        "secretString": "${ONLYOFFICE_JWT_SECRET}",
         "folderPath": "/var/www/onlyoffice/Data"
       }
     },

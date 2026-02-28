@@ -208,11 +208,13 @@ EOF
 }
 
 # ─────────────────────────────────────────────
-# Step 6: Resolve Keycloak realm configuration
-# Substitutes ${DOMAIN} and ${KEYCLOAK_CLIENT_SECRET} into realm-export.json
+# Step 6: Resolve service configuration templates
+# Substitutes secrets and domain into config files that cannot use env vars
+# natively (JSON configs, Traefik dynamic files, Redis conf).
+# Generated files are .gitignore'd — never committed.
 # ─────────────────────────────────────────────
 resolve_realm_config() {
-  step "6/10" "Resolving Keycloak realm configuration..."
+  step "6/10" "Resolving service configuration templates..."
 
   local REALM_TEMPLATE="$COMPOSE_DIR/config/keycloak/realm-export.json"
   local REALM_RESOLVED="$COMPOSE_DIR/config/keycloak/realm-resolved.json"
@@ -220,7 +222,36 @@ resolve_realm_config() {
   export DOMAIN KEYCLOAK_CLIENT_SECRET
   envsubst '${DOMAIN} ${KEYCLOAK_CLIENT_SECRET}' < "$REALM_TEMPLATE" > "$REALM_RESOLVED"
   chmod 600 "$REALM_RESOLVED"
-  ok "Realm config written to config/keycloak/realm-resolved.json"
+  ok "Keycloak realm config → config/keycloak/realm-resolved.json"
+
+  # OnlyOffice local.json — inject DB password and JWT secret.
+  # Mounted as :ro so the entrypoint cannot patch it; we pre-populate the values.
+  local OO_TEMPLATE="$COMPOSE_DIR/config/onlyoffice/local.json"
+  local OO_RESOLVED="$COMPOSE_DIR/config/onlyoffice/local-resolved.json"
+
+  export ONLYOFFICE_DB_PASSWORD ONLYOFFICE_JWT_SECRET
+  envsubst '${ONLYOFFICE_DB_PASSWORD} ${ONLYOFFICE_JWT_SECRET}' < "$OO_TEMPLATE" > "$OO_RESOLVED"
+  chmod 600 "$OO_RESOLVED"
+  ok "OnlyOffice config → config/onlyoffice/local-resolved.json"
+
+  # Traefik dynamic routes — Traefik file provider does not support Go template
+  # or env var interpolation, so we generate routes.yml from routes.yml.tmpl.
+  local ROUTES_TEMPLATE="$COMPOSE_DIR/config/traefik/dynamic/routes.yml.tmpl"
+  local ROUTES_RESOLVED="$COMPOSE_DIR/config/traefik/dynamic/routes.yml"
+
+  export DOMAIN
+  envsubst '${DOMAIN}' < "$ROUTES_TEMPLATE" > "$ROUTES_RESOLVED"
+  ok "Traefik routes → config/traefik/dynamic/routes.yml"
+
+  # Redis config — password in redis-server command is visible in process list
+  # and docker inspect. Use a config file instead.
+  local REDIS_TEMPLATE="$COMPOSE_DIR/config/redis/redis.conf"
+  local REDIS_RESOLVED="$COMPOSE_DIR/config/redis/redis-resolved.conf"
+
+  export REDIS_PASSWORD
+  envsubst '${REDIS_PASSWORD}' < "$REDIS_TEMPLATE" > "$REDIS_RESOLVED"
+  chmod 600 "$REDIS_RESOLVED"
+  ok "Redis config → config/redis/redis-resolved.conf"
 }
 
 # ─────────────────────────────────────────────
@@ -299,6 +330,9 @@ print_summary() {
   echo -e "  ${BOLD}Document Server:${NC} https://docs.${DOMAIN}"
   echo ""
   echo -e "  ${BOLD}Keycloak admin:${NC}  admin"
+  # NOTE (security tradeoff): The admin password is printed here for first-run
+  # convenience. It is also persisted in .env (mode 600). In sensitive
+  # environments, omit this line and retrieve the password from .env directly.
   echo -e "  ${BOLD}Keycloak password:${NC} ${KEYCLOAK_ADMIN_PASSWORD:-<see .env>}"
   echo ""
   echo -e "  ${RED}${BOLD}⚠  IMPORTANT: Change the Keycloak admin password immediately!${NC}"

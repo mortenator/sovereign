@@ -1,7 +1,10 @@
-# Traefik v3 — Dynamic Routing Configuration
+# Traefik v3 — Dynamic Routing Configuration (TEMPLATE)
 # Sovereign Deploy — EU Sovereign Document Suite
 #
-# Loaded by the Traefik file provider from /etc/traefik/dynamic/.
+# THIS IS A TEMPLATE — do not load directly. setup.sh generates routes.yml
+# from this file using envsubst, replacing ${DOMAIN} with the actual domain.
+# Traefik's file provider ignores .tmpl files.
+#
 # Most routing is defined via Docker labels in docker-compose.yml.
 # This file adds shared middleware and catches edge cases.
 
@@ -65,7 +68,7 @@ http:
           - "DELETE"
           - "OPTIONS"
         accessControlAllowOriginList:
-          - "https://{{ env \"DOMAIN\" }}"
+          - "https://${DOMAIN}"
         accessControlAllowHeaders:
           - "Authorization"
           - "Content-Type"
@@ -95,7 +98,7 @@ http:
 
     # Web frontend
     web-secure:
-      rule: "Host(`{{ env \"DOMAIN\" }}`)"
+      rule: "Host(`${DOMAIN}`)"
       entryPoints:
         - websecure
       middlewares:
@@ -108,7 +111,7 @@ http:
 
     # Auth (Keycloak) — stricter rate limiting
     keycloak-secure:
-      rule: "Host(`auth.{{ env \"DOMAIN\" }}`)"
+      rule: "Host(`auth.${DOMAIN}`)"
       entryPoints:
         - websecure
       middlewares:
@@ -120,7 +123,7 @@ http:
 
     # OnlyOffice Document Server
     onlyoffice-secure:
-      rule: "Host(`docs.{{ env \"DOMAIN\" }}`)"
+      rule: "Host(`docs.${DOMAIN}`)"
       entryPoints:
         - websecure
       middlewares:
@@ -133,7 +136,7 @@ http:
 
     # MinIO storage console
     minio-secure:
-      rule: "Host(`storage.{{ env \"DOMAIN\" }}`)"
+      rule: "Host(`storage.${DOMAIN}`)"
       entryPoints:
         - websecure
       middlewares:

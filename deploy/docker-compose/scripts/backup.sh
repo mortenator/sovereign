@@ -181,6 +181,11 @@ upload_to_s3() {
     return 0
   fi
 
+  # NOTE (security tradeoff): Backups are uploaded without additional
+  # client-side encryption. The archive is compressed but plaintext.
+  # COMPLIANCE.md recommends encryption at rest — rely on S3 server-side
+  # encryption (SSE) enabled on the target bucket, or add GPG encryption
+  # here before upload if your S3 provider does not enforce SSE.
   info "Uploading to S3-compatible storage: $S3_ENDPOINT/$S3_BUCKET"
 
   docker run --rm \

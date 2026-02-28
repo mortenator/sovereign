@@ -1,3 +1,7 @@
 .env
 *.local
+# Generated config files (created by setup.sh via envsubst — never commit)
 deploy/docker-compose/config/keycloak/realm-resolved.json
+deploy/docker-compose/config/onlyoffice/local-resolved.json
+deploy/docker-compose/config/traefik/dynamic/routes.yml
+deploy/docker-compose/config/redis/redis-resolved.conf
