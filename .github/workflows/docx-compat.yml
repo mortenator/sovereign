@@ -72,6 +72,13 @@ jobs:
           fi
           cat corpus/index.json | python3 -m json.tool > /dev/null && echo "index.json valid"
 
+      - name: Resolve Docker host gateway IP
+        # OnlyOffice fetches the document URL server-side from inside its container.
+        # 127.0.0.1 inside the OO container is the container's own loopback, not the
+        # runner's. We must advertise our file server using the Docker bridge gateway IP
+        # so OO can reach it. The FILE_SERVER_HOST env var is consumed by run-tests.ts.
+        run: echo "FILE_SERVER_HOST=$(ip route show | awk '/default/ {print $3}')" >> $GITHUB_ENV
+
       - name: Wait for OnlyOffice to be ready
         run: |
           echo "Waiting for OnlyOffice Document Server..."
@@ -100,7 +107,10 @@ jobs:
       - name: Score results and generate report
         working-directory: tests/docx-compat
         run: npm run score
-        # Allow score to fail (exit 1 = below threshold) — we still upload artifacts
+        continue-on-error: true
+        # score exits 1 when tiers are below threshold; continue-on-error lets the
+        # workflow proceed to upload artifacts. The "Assert thresholds met" step below
+        # is the authoritative gate that fails CI when thresholds aren't met.
 
       - name: Upload test artifacts
         if: always()

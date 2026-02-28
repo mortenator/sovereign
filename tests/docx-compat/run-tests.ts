@@ -27,6 +27,11 @@ const REFERENCE_DIR = path.join(__dirname, "reference");
 const RESULTS_DIR = path.join(__dirname, "results");
 const ONLYOFFICE_URL = process.env.ONLYOFFICE_URL ?? "http://localhost:8080";
 const FILE_SERVER_PORT = parseInt(process.env.FILE_SERVER_PORT ?? "9090", 10);
+// FILE_SERVER_HOST must be reachable from the OnlyOffice Docker container.
+// In CI, OO fetches the document URL server-side from inside its container, so
+// 127.0.0.1 resolves to the container's own loopback — not the runner's.
+// Set FILE_SERVER_HOST to the Docker bridge gateway (e.g. 172.17.0.1) in CI.
+const FILE_SERVER_HOST = process.env.FILE_SERVER_HOST ?? "127.0.0.1";
 const PIXEL_DIFF_THRESHOLD = parseFloat(process.env.PIXEL_DIFF_THRESHOLD ?? "0.05"); // 5% tolerance
 const DOCUMENT_READY_TIMEOUT = parseInt(process.env.DOCUMENT_READY_TIMEOUT ?? "30000", 10);
 
@@ -101,8 +106,10 @@ function startFileServer(): Promise<http.Server> {
     });
 
     server.on("error", reject);
-    server.listen(FILE_SERVER_PORT, "127.0.0.1", () => {
-      console.log(`  File server listening on http://127.0.0.1:${FILE_SERVER_PORT}`);
+    // Bind to 0.0.0.0 so the file server is reachable from Docker containers (OO
+    // fetches the document URL server-side from within its container).
+    server.listen(FILE_SERVER_PORT, "0.0.0.0", () => {
+      console.log(`  File server listening on http://0.0.0.0:${FILE_SERVER_PORT} (accessible as ${FILE_SERVER_HOST})`);
       resolve(server);
     });
   });
@@ -112,7 +119,7 @@ function startFileServer(): Promise<http.Server> {
 
 function buildOnlyOfficeUrl(filename: string): string {
   const docUrl = encodeURIComponent(
-    `http://127.0.0.1:${FILE_SERVER_PORT}/${encodeURIComponent(filename)}`
+    `http://${FILE_SERVER_HOST}:${FILE_SERVER_PORT}/${encodeURIComponent(filename)}`
   );
   const ext = path.extname(filename).slice(1).toLowerCase(); // e.g. "docx" or "doc"
 
