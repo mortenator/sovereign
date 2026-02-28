@@ -48,6 +48,14 @@ export function OnlyOfficeEmbed({
     isDarkModeRef.current = isDarkMode
   }, [isDarkMode])
 
+  // Track documentTitle in a ref for the same reason: renaming the document
+  // must not destroy and recreate the OO editor (losing cursor position and
+  // any un-autosaved state). The title is read once at init time by buildOOConfig.
+  const documentTitleRef = useRef(documentTitle)
+  useEffect(() => {
+    documentTitleRef.current = documentTitle
+  }, [documentTitle])
+
   // Track mount state so async callbacks don't update state after unmount.
   useEffect(() => {
     mountedRef.current = true
@@ -59,7 +67,14 @@ export function OnlyOfficeEmbed({
   const destroyEditor = useCallback(() => {
     if (editorInstanceRef.current) {
       try {
-        editorInstanceRef.current.destroyEditor()
+        // OO SDK exposes destroyEditor() per API docs; older/variant builds may
+        // use destroy(). Try both to be safe, wrapped in try/catch regardless.
+        const inst = editorInstanceRef.current as OOEditor & { destroy?(): void }
+        if (typeof inst.destroyEditor === 'function') {
+          inst.destroyEditor()
+        } else if (typeof inst.destroy === 'function') {
+          inst.destroy()
+        }
       } catch {
         // ignore destroy errors
       }
@@ -113,7 +128,7 @@ export function OnlyOfficeEmbed({
     const baseConfig = buildOOConfig({
       documentKey,
       documentUrl,
-      documentTitle,
+      documentTitle: documentTitleRef.current,
       callbackUrl,
       isDarkMode: isDarkModeRef.current,
     })
@@ -156,10 +171,10 @@ export function OnlyOfficeEmbed({
   }, [
     documentKey,
     documentUrl,
-    documentTitle,
+    // documentTitle intentionally excluded: changes handled via documentTitleRef to
+    // avoid destroying and recreating the editor on every rename (losing cursor
+    // position and un-autosaved state). isDarkMode excluded for the same reason.
     callbackUrl,
-    // isDarkMode intentionally excluded: changes handled via isDarkModeRef to
-    // avoid destroying and recreating the editor on every theme toggle.
     onReady,
     onStateChange,
     onError,

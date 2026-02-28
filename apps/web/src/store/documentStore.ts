@@ -42,8 +42,9 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     }),
 
   setDocumentTitle: (title) => set({ documentTitle: title }),
-  setWordCount: (count) => set({ wordCount: count }),
-  setPageInfo: (current, total) => set({ currentPage: current, pageCount: total }),
+  setWordCount: (count) => set({ wordCount: Math.max(0, count) }),
+  setPageInfo: (current, total) =>
+    set({ currentPage: Math.max(1, current), pageCount: Math.max(1, total) }),
   setDirty: (dirty) => set({ isDirty: dirty }),
 
   // NOTE: OO Document Server has no REST endpoint to create a blank document.

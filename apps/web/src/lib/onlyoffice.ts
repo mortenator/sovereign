@@ -10,6 +10,17 @@ const APP_URL = (import.meta.env.VITE_APP_URL ?? 'http://localhost:5173').replac
 // VITE_OO_TOKEN to a pre-signed token. Leave unset in prod (use server-side injection).
 const OO_JWT_TOKEN = import.meta.env.VITE_OO_TOKEN as string | undefined
 
+// Warn loudly if a JWT token is bundled in a production build. Any VITE_* variable
+// is inlined into the JS bundle and visible to anyone who views source — a bundled
+// token lets users forge editor configs and bypass OO Document Server authorization.
+if (import.meta.env.PROD && OO_JWT_TOKEN) {
+  console.warn(
+    '[Sovereign] SECURITY: VITE_OO_TOKEN is set in a production build. ' +
+    'The token is visible in the JS bundle and can be used to forge editor configs. ' +
+    'Inject the JWT token server-side instead of via environment variables.'
+  )
+}
+
 export function getOOApiScriptUrl(): string {
   return OO_API_SCRIPT
 }

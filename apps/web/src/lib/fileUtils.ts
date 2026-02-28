@@ -1,3 +1,5 @@
+import { generateDocumentKey } from '@/lib/onlyoffice'
+
 // Strip trailing slash so env vars like VITE_APP_URL=http://host/ don't produce
 // double-slash URLs (e.g. http://host//sample.docx).
 const APP_URL = (import.meta.env.VITE_APP_URL ?? 'http://localhost:5173').replace(/\/$/, '')
@@ -49,7 +51,11 @@ export const RECENT_DOCUMENTS: DocumentMeta[] = [
     id: '1',
     title: 'Sample Document',
     url: SAMPLE_DOC_URL,
-    key: 'sample-doc-v1',
+    // Use a unique key per session so OO Document Server doesn't serve
+    // stale cached content from a previous session. A static key like
+    // 'sample-doc-v1' causes the server to return cached content even
+    // after sample.docx is regenerated.
+    key: generateDocumentKey(),
     lastModified: new Date(),
     size: 24576,
   },
