@@ -48,7 +48,7 @@ http:
     auth-rate-limit:
       rateLimit:
         average: 10
-        burst: 20
+        burst: 5
         period: 1s
 
     # Compress responses (gzip/brotli)

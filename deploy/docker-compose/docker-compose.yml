@@ -20,6 +20,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
@@ -113,7 +116,7 @@ services:
     networks:
       - sovereign-net
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:9000/minio/health/live || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -178,7 +181,7 @@ services:
       # Disable telemetry
       KC_FEATURES_DISABLED: "admin-fine-grained-authz"
     volumes:
-      - ./config/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+      - ./config/keycloak/realm-resolved.json:/opt/keycloak/data/import/realm.json:ro
       - keycloak-data:/opt/keycloak/data
     depends_on:
       postgres:
@@ -208,6 +211,10 @@ services:
     image: onlyoffice/documentserver:8.0.1
     container_name: sovereign-onlyoffice
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     environment:
       DB_TYPE: postgres
       DB_HOST: postgres

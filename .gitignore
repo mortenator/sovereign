@@ -1,0 +1,3 @@
+.env
+*.local
+deploy/docker-compose/config/keycloak/realm-resolved.json

@@ -47,6 +47,9 @@
     },
     "stats": {
       "enabled": false
+    },
+    "metrics": {
+      "enabled": false
     }
   },
   "FileConverter": {
@@ -83,11 +86,6 @@
   },
   "tenants": {
     "baseDir": "/var/www/onlyoffice/Data/tenants"
-  },
-  "services": {
-    "metrics": {
-      "enabled": false
-    }
   },
   "regions": {
     "eu": {

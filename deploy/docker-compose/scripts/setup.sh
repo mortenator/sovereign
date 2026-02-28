@@ -42,7 +42,7 @@ ask()  { echo -en "  ${BOLD}$1${NC} "; }
 # Step 1: Preflight checks
 # ─────────────────────────────────────────────
 check_dependencies() {
-  step "1/9" "Checking dependencies..."
+  step "1/10" "Checking dependencies..."
 
   if ! command -v docker &>/dev/null; then
     fail "Docker not found. Install from https://docs.docker.com/engine/install/"
@@ -59,6 +59,11 @@ check_dependencies() {
   fi
   ok "openssl present"
 
+  if ! command -v envsubst &>/dev/null; then
+    fail "envsubst not found. Install: sudo apt install gettext-base"
+  fi
+  ok "envsubst present"
+
   if [[ "$EUID" -eq 0 ]]; then
     warn "Running as root. Consider using a non-root user with docker group access."
   fi
@@ -68,7 +73,7 @@ check_dependencies() {
 # Step 2: Existing .env check
 # ─────────────────────────────────────────────
 check_existing_env() {
-  step "2/9" "Checking existing configuration..."
+  step "2/10" "Checking existing configuration..."
 
   if [[ -f "$ENV_FILE" ]]; then
     warn "An existing .env file was found at: $ENV_FILE"
@@ -89,7 +94,7 @@ check_existing_env() {
 # Step 3: Gather configuration
 # ─────────────────────────────────────────────
 gather_config() {
-  step "3/9" "Configuration"
+  step "3/10" "Configuration"
   echo ""
 
   ask "Enter your domain name (e.g. docs.company.eu):"
@@ -123,7 +128,7 @@ gather_config() {
 # Step 4: Generate passwords
 # ─────────────────────────────────────────────
 generate_secrets() {
-  step "4/9" "Generating cryptographic secrets..."
+  step "4/10" "Generating cryptographic secrets..."
 
   gen_password() { openssl rand -base64 32 | tr -d '/+=\n'; }
   gen_hex()      { openssl rand -hex 32; }
@@ -133,6 +138,7 @@ generate_secrets() {
   MINIO_ROOT_PASSWORD=$(gen_password)
   KEYCLOAK_ADMIN_PASSWORD=$(gen_password)
   KEYCLOAK_DB_PASSWORD=$(gen_password)
+  KEYCLOAK_CLIENT_SECRET=$(gen_hex)
   ONLYOFFICE_DB_PASSWORD=$(gen_password)
   ONLYOFFICE_JWT_SECRET=$(gen_hex)
 
@@ -143,7 +149,7 @@ generate_secrets() {
 # Step 5: Write .env file
 # ─────────────────────────────────────────────
 write_env() {
-  step "5/9" "Writing .env file..."
+  step "5/10" "Writing .env file..."
 
   cat > "$ENV_FILE" <<EOF
 # Sovereign Deploy — Environment Variables
@@ -170,6 +176,8 @@ MINIO_REGION=eu-central-1
 KEYCLOAK_ADMIN_USER=admin
 KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
 KEYCLOAK_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD}
+# OIDC client secret for sovereign-web. Generated on first setup.
+KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
 
 # OnlyOffice
 ONLYOFFICE_DB_PASSWORD=${ONLYOFFICE_DB_PASSWORD}
@@ -200,30 +208,46 @@ EOF
 }
 
 # ─────────────────────────────────────────────
-# Step 6: Pull images
+# Step 6: Resolve Keycloak realm configuration
+# Substitutes ${DOMAIN} and ${KEYCLOAK_CLIENT_SECRET} into realm-export.json
+# ─────────────────────────────────────────────
+resolve_realm_config() {
+  step "6/10" "Resolving Keycloak realm configuration..."
+
+  local REALM_TEMPLATE="$COMPOSE_DIR/config/keycloak/realm-export.json"
+  local REALM_RESOLVED="$COMPOSE_DIR/config/keycloak/realm-resolved.json"
+
+  export DOMAIN KEYCLOAK_CLIENT_SECRET
+  envsubst '${DOMAIN} ${KEYCLOAK_CLIENT_SECRET}' < "$REALM_TEMPLATE" > "$REALM_RESOLVED"
+  chmod 600 "$REALM_RESOLVED"
+  ok "Realm config written to config/keycloak/realm-resolved.json"
+}
+
+# ─────────────────────────────────────────────
+# Step 7: Pull images
 # ─────────────────────────────────────────────
 pull_images() {
-  step "6/9" "Pulling Docker images (this may take a few minutes)..."
+  step "7/10" "Pulling Docker images (this may take a few minutes)..."
   cd "$COMPOSE_DIR"
   docker compose pull --quiet
   ok "All images pulled"
 }
 
 # ─────────────────────────────────────────────
-# Step 7: Start the stack
+# Step 8: Start the stack
 # ─────────────────────────────────────────────
 start_stack() {
-  step "7/9" "Starting the stack..."
+  step "8/10" "Starting the stack..."
   cd "$COMPOSE_DIR"
   docker compose up -d --remove-orphans
   ok "Stack started"
 }
 
 # ─────────────────────────────────────────────
-# Step 8: Wait for health checks
+# Step 9: Wait for health checks
 # ─────────────────────────────────────────────
 wait_healthy() {
-  step "8/9" "Waiting for services to become healthy..."
+  step "9/10" "Waiting for services to become healthy..."
   cd "$COMPOSE_DIR"
 
   local SERVICES=("sovereign-postgres" "sovereign-redis" "sovereign-minio" "sovereign-keycloak" "sovereign-onlyoffice" "sovereign-web")
@@ -260,10 +284,10 @@ wait_healthy() {
 }
 
 # ─────────────────────────────────────────────
-# Step 9: Print success summary
+# Step 10: Print success summary
 # ─────────────────────────────────────────────
 print_summary() {
-  step "9/9" "Setup complete!"
+  step "10/10" "Setup complete!"
   echo ""
   echo -e "${GREEN}${BOLD}╔════════════════════════════════════════════════════╗${NC}"
   echo -e "${GREEN}${BOLD}║           Sovereign is running!                    ║${NC}"
@@ -301,6 +325,7 @@ main() {
   gather_config
   generate_secrets
   write_env
+  resolve_realm_config
   pull_images
   start_stack
   wait_healthy

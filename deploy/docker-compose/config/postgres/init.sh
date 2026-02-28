@@ -9,6 +9,24 @@ set -euo pipefail
 
 echo "==> Sovereign: Initializing PostgreSQL databases..."
 
+# Ensure sovereign user and database exist (idempotent — postgres entrypoint may have already created them)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -tc \
+  "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'sovereign'" | grep -q 1 || \
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+  -c "CREATE ROLE sovereign WITH LOGIN PASSWORD '${POSTGRES_PASSWORD}';"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -tc \
+  "SELECT 1 FROM pg_database WHERE datname = 'sovereign'" | grep -q 1 || \
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  CREATE DATABASE sovereign
+    OWNER = sovereign
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'C'
+    LC_CTYPE = 'C'
+    TEMPLATE = template0;
+  GRANT ALL PRIVILEGES ON DATABASE sovereign TO sovereign;
+EOSQL
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 
   -- ─────────────────────────────────────────────
@@ -50,8 +68,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE DATABASE onlyoffice
     OWNER = onlyoffice
     ENCODING = 'UTF8'
-    LC_COLLATE = 'en_US.UTF-8'
-    LC_CTYPE = 'en_US.UTF-8'
+    LC_COLLATE = 'C'
+    LC_CTYPE = 'C'
     TEMPLATE = template0;
   GRANT ALL PRIVILEGES ON DATABASE onlyoffice TO onlyoffice;
 EOSQL
@@ -63,8 +81,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE DATABASE keycloak
     OWNER = keycloak
     ENCODING = 'UTF8'
-    LC_COLLATE = 'en_US.UTF-8'
-    LC_CTYPE = 'en_US.UTF-8'
+    LC_COLLATE = 'C'
+    LC_CTYPE = 'C'
     TEMPLATE = template0;
   GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 EOSQL
