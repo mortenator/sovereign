@@ -18,7 +18,7 @@ jobs:
 
     services:
       onlyoffice:
-        image: onlyoffice/documentserver:latest
+        image: onlyoffice/documentserver:7.5
         ports:
           - 8080:80
         options: >-
@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: tests/docx-compat
-        run: npm install
+        run: npm ci
 
       - name: Install Playwright browsers
         working-directory: tests/docx-compat
@@ -85,10 +85,9 @@ jobs:
           done
           curl -sf http://localhost:8080/healthcheck || (echo "OnlyOffice not ready after 5 minutes" && exit 1)
 
-      - name: Generate reference images (critical tier)
+      - name: Generate reference images (critical + high tiers)
         working-directory: tests/docx-compat
         run: npx ts-node run-tests.ts --generate-references
-        continue-on-error: true  # Reference generation may partially fail; tests still run
 
       - name: Run compatibility tests
         working-directory: tests/docx-compat
@@ -142,7 +141,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: tests/docx-compat
-        run: npm install
+        run: npm ci
 
       - name: Type-check
         working-directory: tests/docx-compat
