@@ -69,7 +69,7 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   setEditorReady: (ready) => set({ isEditorReady: ready, isEditorLoading: !ready }),
   setEditorLoading: (loading) => set({ isEditorLoading: loading }),
-  setEditorError: (error) => set({ editorError: error, isEditorLoading: false }),
+  setEditorError: (error) => set({ editorError: error, isEditorLoading: false, isEditorReady: false }),
   setActiveRibbonTab: (tab) => set({ activeRibbonTab: tab }),
   setSidebarPanel: (panel) => set({ sidebarPanel: panel }),
   toggleSidebarPanel: (panel) =>

@@ -60,7 +60,7 @@ export function ViewTab() {
         <ViewBtn
           label="Print Layout"
           icon={BookOpen}
-          onClick={() => console.log('print layout')}
+          onClick={() => { /* TODO: implement print layout toggle */ }}
           active
         />
         <ViewBtn
@@ -77,7 +77,7 @@ export function ViewTab() {
         <ViewBtn
           label="Ruler"
           icon={Ruler}
-          onClick={() => console.log('ruler')}
+          onClick={() => { /* TODO: implement ruler toggle */ }}
         />
         <ViewBtn
           label="Side Panel"

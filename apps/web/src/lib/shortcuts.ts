@@ -9,8 +9,12 @@ export interface ShortcutDef {
   category: string
 }
 
+// navigator.platform is deprecated. Prefer userAgentData.platform (Chrome/Edge) with
+// a userAgent string fallback for Firefox/Safari.
 const isMac =
-  typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+  typeof navigator !== 'undefined' &&
+  ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform === 'macOS') ||
+  /Mac|iPhone|iPad|iPod/.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
 
 export const MOD = isMac ? 'meta' : 'ctrl'
 

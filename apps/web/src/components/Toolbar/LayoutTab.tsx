@@ -57,7 +57,7 @@ function LayoutGroup({ label, children }: { label: string; children: React.React
 export function LayoutTab() {
   // Page Setup actions: no direct OO SDK connector method — route to editor UI
   const notAvailable = (feature: string) =>
-    alert(`"${feature}" is not available via the ribbon.\nUse the Layout menu inside the editor.`)
+    console.info(`[Sovereign] "${feature}" is not yet available via the ribbon.`)
 
   const handleIndentDecrease = () => {
     execOOMethod('DecreaseIndent')

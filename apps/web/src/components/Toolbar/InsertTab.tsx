@@ -59,7 +59,41 @@ function InsertGroup({ label, children }: { label: string; children: React.React
 
 // OO SDK does not expose a connector method for this action — direct the user to the editor UI.
 function notAvailable(feature: string) {
-  alert(`"${feature}" is not available via the ribbon.\nUse the Format menu inside the editor.`)
+  // Use a non-blocking notification instead of alert() which blocks the event loop.
+  console.info(`[Sovereign] "${feature}" is not yet available via the ribbon.`)
+  // TODO: replace with a toast notification once the UI library is wired up.
+}
+
+/**
+ * Validate that a user-supplied image URL is safe to pass to the OO Document Server.
+ * The server fetches this URL server-side, so we must block private/loopback ranges
+ * to prevent SSRF (e.g. http://169.254.169.254/ AWS metadata, internal services).
+ * Only public http:// and https:// URLs are allowed.
+ */
+function isSafeImageUrl(raw: string): boolean {
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return false
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+
+  const host = url.hostname.toLowerCase()
+
+  // Block loopback
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false
+  // Block link-local (AWS/GCP metadata service)
+  if (host.startsWith('169.254.')) return false
+  // Block private RFC-1918 ranges
+  if (host.startsWith('10.')) return false
+  if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(host)) return false
+  if (host.startsWith('192.168.')) return false
+  // Block IPv6 private / link-local
+  if (host.startsWith('[fc') || host.startsWith('[fd') || host.startsWith('[fe80')) return false
+
+  return true
 }
 
 export function InsertTab() {
@@ -71,12 +105,20 @@ export function InsertTab() {
   }
 
   const handleInsertImage = () => {
-    // OO Document Server must fetch the image URL, so a local blob: URL won't work.
-    // Until a backend upload endpoint is available, prompt for a public image URL.
-    const url = window.prompt('Enter image URL (must be publicly accessible):')
-    if (url?.trim()) {
-      execOOMethod('InsertImage', null, { c: 'add', Images: [{ ImageUrl: url.trim() }] })
+    // OO Document Server must fetch the image URL server-side, so only public
+    // http/https URLs are accepted. Private/loopback addresses are blocked to
+    // prevent SSRF against internal services or cloud metadata endpoints.
+    const raw = window.prompt('Enter image URL (must be a public https:// address):')
+    if (!raw?.trim()) return
+    const url = raw.trim()
+    if (!isSafeImageUrl(url)) {
+      // Inform the user without blocking the event loop (no alert()).
+      // TODO: replace with a proper toast notification.
+      console.warn('[Sovereign] Image URL rejected: only public http/https URLs are allowed.')
+      window.alert('Only public http:// or https:// URLs are allowed.\nPrivate, loopback, and link-local addresses are blocked.')
+      return
     }
+    execOOMethod('InsertImage', null, { c: 'add', Images: [{ ImageUrl: url }] })
   }
 
   return (

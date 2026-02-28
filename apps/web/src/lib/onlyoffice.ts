@@ -203,9 +203,12 @@ export function execOOMethod(
   callback: ((result?: any) => void) | null = null,
   data?: unknown
 ): void {
+  // Guard: if the connector hasn't been initialised yet (i.e. onDocumentReady
+  // hasn't fired), return early instead of calling createConnector() which would
+  // create a new SDK event subscription on every call and leak handles.
+  if (!_cachedConnector) return
   try {
-    const connector = _cachedConnector ?? window.editor?.createConnector?.()
-    connector?.executeMethod(methodName, callback, data)
+    _cachedConnector.executeMethod(methodName, callback, data)
   } catch {
     // Editor not ready or method unsupported — safe to ignore
   }

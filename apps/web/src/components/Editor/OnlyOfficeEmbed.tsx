@@ -25,6 +25,17 @@ function queryWordCount() {
   })
 }
 
+// Debounced wrapper — onDocumentStateChange fires on every keystroke.
+// Without debouncing, sustained typing queues hundreds of async IPC calls.
+let _wordCountTimer: ReturnType<typeof setTimeout> | null = null
+function queryWordCountDebounced() {
+  if (_wordCountTimer !== null) clearTimeout(_wordCountTimer)
+  _wordCountTimer = setTimeout(() => {
+    _wordCountTimer = null
+    queryWordCount()
+  }, 500)
+}
+
 export function OnlyOfficeEmbed({
   documentKey,
   documentUrl,
@@ -153,8 +164,9 @@ export function OnlyOfficeEmbed({
         },
         onDocumentStateChange: (e: { data: boolean }) => {
           onStateChange?.(e.data)
-          // Update word count on every document change event.
-          queryWordCount()
+          // Debounced word count — fires at most once per 500 ms to avoid
+          // queuing hundreds of async IPC calls during sustained typing.
+          queryWordCountDebounced()
         },
         onError: (e: { data: { errorCode: number; errorDescription: string } }) => {
           setEditorError(`Error ${e.data.errorCode}: ${e.data.errorDescription}`)

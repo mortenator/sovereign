@@ -82,14 +82,13 @@ export function StylesPanel() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-2" role="listbox" aria-label="Paragraph styles">
+      <div className="flex-1 overflow-y-auto py-2" aria-label="Paragraph styles">
         {STYLES.map((style) => (
           <button
             key={style.name}
             className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-100 dark:border-gray-800 transition-colors"
             onClick={() => applyStyle(style.tag)}
-            role="option"
-            aria-selected={false}
+
           >
             <div className={style.className}>{style.preview}</div>
             <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 block">
