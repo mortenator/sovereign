@@ -55,6 +55,15 @@ export function useKeyboardShortcuts() {
         case 'alignJustify':
           execOOMethod('justifyFull')
           break
+        case 'heading1':
+          execOOMethod('setStyle', null, 'h1')
+          break
+        case 'heading2':
+          execOOMethod('setStyle', null, 'h2')
+          break
+        case 'heading3':
+          execOOMethod('setStyle', null, 'h3')
+          break
         case 'fontSizeUp':
           // Handled by font size controls
           break

@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { useDocumentStore } from '@/store/documentStore'
 import { OnlyOfficeEmbed } from './OnlyOfficeEmbed'
+import { EditorErrorBoundary } from './EditorErrorBoundary'
 import { OutlinePanel } from '@/components/Sidebar/OutlinePanel'
 import { CommentsPanel } from '@/components/Sidebar/CommentsPanel'
 import { StylesPanel } from '@/components/Sidebar/StylesPanel'
@@ -96,16 +97,18 @@ export function EditorShell() {
           </div>
         )}
 
-        <OnlyOfficeEmbed
-          documentKey={documentKey}
-          documentUrl={documentUrl}
-          documentTitle={documentTitle}
-          callbackUrl={callbackUrl}
-          onReady={handleReady}
-          onStateChange={setDirty}
-          onError={handleError}
-          onEditorCreated={handleEditorCreated}
-        />
+        <EditorErrorBoundary>
+          <OnlyOfficeEmbed
+            documentKey={documentKey}
+            documentUrl={documentUrl}
+            documentTitle={documentTitle}
+            callbackUrl={callbackUrl}
+            onReady={handleReady}
+            onStateChange={setDirty}
+            onError={handleError}
+            onEditorCreated={handleEditorCreated}
+          />
+        </EditorErrorBoundary>
       </main>
 
       {/* Right sidebar */}

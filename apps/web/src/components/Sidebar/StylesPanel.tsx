@@ -1,4 +1,5 @@
 import { useEditorStore } from '@/store/editorStore'
+import { execOOMethod } from '@/lib/onlyoffice'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -58,9 +59,9 @@ export function StylesPanel() {
   const { toggleSidebarPanel } = useEditorStore()
 
   const applyStyle = (tag: string) => {
-    if (['h1', 'h2', 'h3', 'h4', 'p', 'blockquote', 'pre'].includes(tag)) {
-      document.execCommand('formatBlock', false, tag)
-    }
+    // Use the OO SDK connector — document.execCommand targets the parent document,
+    // not the editor iframe, so it has no effect on the actual document being edited.
+    execOOMethod('setStyle', null, tag)
   }
 
   return (

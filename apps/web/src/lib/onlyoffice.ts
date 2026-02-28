@@ -7,7 +7,9 @@ export function getOOApiScriptUrl(): string {
 }
 
 export function generateDocumentKey(): string {
-  return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+  // crypto.randomUUID() is cryptographically secure — Math.random() is not,
+  // and predictable keys allow document enumeration attacks.
+  return `doc_${crypto.randomUUID()}`
 }
 
 /** Ensure a URL is absolute. OO Document Server can't fetch relative URLs. */
