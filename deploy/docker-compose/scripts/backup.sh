@@ -204,7 +204,10 @@ upload_to_s3() {
   # process list (which would happen if passed as mc alias set CLI arguments).
   local MC_CONF_DIR
   MC_CONF_DIR=$(mktemp -d)
-  mkdir -p "$MC_CONF_DIR"
+  # Ensure the credentials directory is always removed, even if the upload
+  # fails mid-way (set -euo pipefail would otherwise exit without cleanup).
+  # shellcheck disable=SC2064
+  trap "rm -rf '${MC_CONF_DIR}'" RETURN
   cat > "$MC_CONF_DIR/config.json" <<EOF
 {
   "version": "10",

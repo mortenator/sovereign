@@ -3,6 +3,10 @@
 # All secrets loaded from .env — never hardcode passwords here.
 # Run `scripts/setup.sh` to generate .env and start the stack.
 
+# Explicit project name ensures volume names always use the "sovereign_" prefix,
+# regardless of the directory name used to run docker compose.
+name: sovereign
+
 x-common-labels: &common-labels
   com.sovereign.project: "sovereign"
   com.sovereign.managed-by: "docker-compose"
@@ -24,7 +28,7 @@ services:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
-      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/traefik/traefik-resolved.yml:/etc/traefik/traefik.yml:ro
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
       - traefik-certs:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -53,9 +57,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: sovereign
       PGDATA: /var/lib/postgresql/data/pgdata
-      # Passed to init.sh to create onlyoffice/keycloak users
+      # Passed to init.sh to create onlyoffice/keycloak/sovereign_app users
       ONLYOFFICE_DB_PASSWORD: ${ONLYOFFICE_DB_PASSWORD}
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      SOVEREIGN_APP_DB_PASSWORD: ${SOVEREIGN_APP_DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
@@ -281,7 +286,7 @@ services:
       NEXT_PUBLIC_KEYCLOAK_REALM: sovereign
       NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: sovereign-web
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
-      DATABASE_URL: postgresql://sovereign:${POSTGRES_PASSWORD}@postgres:5432/sovereign
+      DATABASE_URL: postgresql://sovereign_app:${SOVEREIGN_APP_DB_PASSWORD}@postgres:5432/sovereign
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"

@@ -127,6 +127,7 @@ generate_secrets() {
   gen_hex()      { openssl rand -hex 32; }
 
   POSTGRES_PASSWORD=$(gen_password)
+  SOVEREIGN_APP_DB_PASSWORD=$(gen_password)
   REDIS_PASSWORD=$(gen_password)
   MINIO_ROOT_PASSWORD=$(gen_password)
   KEYCLOAK_ADMIN_PASSWORD=$(gen_password)
@@ -156,6 +157,8 @@ DATA_REGION=${DATA_REGION}
 
 # PostgreSQL
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+# Non-superuser application role for the web app (see config/postgres/init.sh)
+SOVEREIGN_APP_DB_PASSWORD=${SOVEREIGN_APP_DB_PASSWORD}
 
 # Redis
 REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -222,8 +225,8 @@ resolve_realm_config() {
   local OO_TEMPLATE="$COMPOSE_DIR/config/onlyoffice/local.json"
   local OO_RESOLVED="$COMPOSE_DIR/config/onlyoffice/local-resolved.json"
 
-  export ONLYOFFICE_DB_PASSWORD ONLYOFFICE_JWT_SECRET
-  envsubst '${ONLYOFFICE_DB_PASSWORD} ${ONLYOFFICE_JWT_SECRET}' < "$OO_TEMPLATE" > "$OO_RESOLVED"
+  export ONLYOFFICE_DB_PASSWORD ONLYOFFICE_JWT_SECRET REDIS_PASSWORD
+  envsubst '${ONLYOFFICE_DB_PASSWORD} ${ONLYOFFICE_JWT_SECRET} ${REDIS_PASSWORD}' < "$OO_TEMPLATE" > "$OO_RESOLVED"
   chmod 600 "$OO_RESOLVED"
   ok "OnlyOffice config → config/onlyoffice/local-resolved.json"
 
@@ -245,6 +248,16 @@ resolve_realm_config() {
   envsubst '${REDIS_PASSWORD}' < "$REDIS_TEMPLATE" > "$REDIS_RESOLVED"
   chmod 600 "$REDIS_RESOLVED"
   ok "Redis config → config/redis/redis-resolved.conf"
+
+  # Traefik static config — Traefik does NOT expand env vars in YAML files,
+  # so we pre-process the template here to substitute ${ACME_EMAIL}.
+  local TRAEFIK_TEMPLATE="$COMPOSE_DIR/config/traefik/traefik.yml.tmpl"
+  local TRAEFIK_RESOLVED="$COMPOSE_DIR/config/traefik/traefik-resolved.yml"
+
+  export ACME_EMAIL
+  envsubst '${ACME_EMAIL}' < "$TRAEFIK_TEMPLATE" > "$TRAEFIK_RESOLVED"
+  chmod 600 "$TRAEFIK_RESOLVED"
+  ok "Traefik static config → config/traefik/traefik-resolved.yml"
 }
 
 # ─────────────────────────────────────────────
