@@ -700,6 +700,12 @@ async function gen20TemplateStyles(): Promise<void> {
   manifest.push({ file: "20-template-styles.docx", priority: "medium", description: "Document using .dotx-style custom corporate template styles", features: ["template-styles", "custom-styles", "corporate-template", "all-caps"] });
 }
 
+// Note: gen21LegacyFormat produces OOXML (docx) content written with a .doc extension.
+// This intentionally does NOT test actual binary Word 97-2003 (.doc / OLE2) parsing —
+// it tests only how OO handles the .doc MIME type and extension hint when the content is
+// already OOXML. Generating a real OLE2 binary would require a separate library (e.g.
+// officegen or libreoffice). The current file is a useful "wrong-extension" compatibility
+// probe, but should not be misread as a test of OO's binary .doc parser.
 async function gen21LegacyFormat(): Promise<void> {
   const doc = new Document({
     compatibility: { version: 12 },

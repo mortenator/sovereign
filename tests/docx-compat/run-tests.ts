@@ -33,6 +33,10 @@ const FILE_SERVER_PORT = parseInt(process.env.FILE_SERVER_PORT ?? "9090", 10);
 // Set FILE_SERVER_HOST to the Docker bridge gateway (e.g. 172.17.0.1) in CI.
 const FILE_SERVER_HOST = process.env.FILE_SERVER_HOST ?? "127.0.0.1";
 const PIXEL_DIFF_THRESHOLD = parseFloat(process.env.PIXEL_DIFF_THRESHOLD ?? "0.05"); // 5% tolerance
+// A single timeout is used for all documents regardless of complexity. 30 s is adequate
+// for most files but may be tight for 19-long-document.docx (20+ pages). Raise the
+// DOCUMENT_READY_TIMEOUT env var when running locally if flakiness is observed on large
+// documents. Per-document timeouts would require manifest metadata; left for a future pass.
 const DOCUMENT_READY_TIMEOUT = parseInt(process.env.DOCUMENT_READY_TIMEOUT ?? "30000", 10);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,6 +122,14 @@ function startFileServer(): Promise<http.Server> {
 // ─── OnlyOffice Integration ───────────────────────────────────────────────────
 
 function buildOnlyOfficeUrl(filename: string): string {
+  // Two-level encoding is intentional and correct here:
+  //   1. encodeURIComponent(filename) encodes the filename for use as a URL path segment
+  //      (e.g. spaces → %20, so the file server path is valid).
+  //   2. The outer encodeURIComponent encodes the entire file URL for embedding as the
+  //      value of the `url=` query parameter (so that `:`, `/`, `%` etc. are safe).
+  // OnlyOffice decodes the `url` parameter once to get the file-server URL, then fetches
+  // it. The file server decodes the path once to get the filename. Each level decodes
+  // exactly one layer — there is no accidental double-decode.
   const docUrl = encodeURIComponent(
     `http://${FILE_SERVER_HOST}:${FILE_SERVER_PORT}/${encodeURIComponent(filename)}`
   );
@@ -159,7 +171,13 @@ async function waitForDocumentReady(page: Page, timeoutMs: number): Promise<void
     console.log("    [warn] Could not detect document ready via DOM — continuing after settle delay");
   });
 
-  // Extra settle time for rendering
+  // Extra settle time for rendering.
+  // 2 s is a best-effort floor, not a guarantee: for large documents (e.g.
+  // 19-long-document.docx, 20+ pages) OO canvas rendering may not be complete.
+  // Increasing this globally adds significant wall-clock time across all tests;
+  // a per-document adaptive wait (polling a render-complete signal) would be ideal
+  // but OO 7.5 exposes no reliable DOM event for that. The DOCUMENT_READY_TIMEOUT
+  // env var can be raised if flakiness is observed on large documents.
   await page.waitForTimeout(2000);
 }
 
@@ -421,14 +439,27 @@ async function checkOnlyOffice(): Promise<boolean> {
       hostname: url.hostname,
       port: parseInt(url.port || "80", 10),
       path: "/healthcheck",
-      method: "HEAD",
+      // Use GET (not HEAD): OO's /healthcheck returns the body "true" on success.
+      // Some server configurations reject HEAD on endpoints that return a body,
+      // causing a spurious 405 that would make every CI run abort with a false
+      // "not reachable" error. GET is safe and lets us assert the body too.
+      method: "GET",
       timeout: 5000,
     };
 
     const req = http.request(options, (res) => {
-      // Require explicit 200 — treating 404 as "healthy" during startup could allow
-      // tests to run before OO is actually ready to serve documents.
-      resolve(res.statusCode === 200);
+      if (res.statusCode !== 200) {
+        res.resume(); // drain so the socket can be reused
+        resolve(false);
+        return;
+      }
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        // OO healthcheck returns the literal string "true" when healthy.
+        resolve(body.trim() === "true");
+      });
     });
 
     req.on("error", () => resolve(false));
