@@ -71,7 +71,7 @@ function startFileServer(): Promise<http.Server> {
 
       const filePath = path.join(CORPUS_DIR, decodeURIComponent(req.url.slice(1)));
 
-      if (!filePath.startsWith(CORPUS_DIR)) {
+      if (!filePath.startsWith(CORPUS_DIR + path.sep)) {
         res.writeHead(403);
         res.end("Forbidden");
         return;
@@ -281,7 +281,7 @@ async function generateReferences(
   entries: CorpusEntry[],
   targetPriorities: string[]
 ): Promise<void> {
-  console.log("\nGenerating reference images for critical tier...");
+  console.log(`\nGenerating reference images for tiers: ${targetPriorities.join(", ")}...`);
 
   if (!fs.existsSync(REFERENCE_DIR)) {
     fs.mkdirSync(REFERENCE_DIR, { recursive: true });
@@ -354,7 +354,7 @@ async function main(): Promise<void> {
   try {
     if (generateRefs) {
       // Generate reference images for critical + high priority
-      await generateReferences(page, manifest.files, ["critical"]);
+      await generateReferences(page, manifest.files, ["critical", "high"]);
     } else {
       // Run all tests
       console.log("Running compatibility tests...\n");
@@ -387,6 +387,7 @@ async function main(): Promise<void> {
     }
   } finally {
     await browser.close();
+    fileServer.closeAllConnections();
     fileServer.close();
   }
 }
@@ -397,7 +398,7 @@ async function checkOnlyOffice(): Promise<boolean> {
     const options = {
       hostname: url.hostname,
       port: parseInt(url.port || "80", 10),
-      path: "/",
+      path: "/healthcheck",
       method: "HEAD",
       timeout: 5000,
     };

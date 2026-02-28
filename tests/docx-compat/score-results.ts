@@ -86,7 +86,13 @@ function computeTier(results: TestResult[], tier: Priority, threshold: number): 
   const skipped = tierResults.filter((r) => r.status === "skip").length;
   const errored = tierResults.filter((r) => r.status === "error").length;
   const evaluated = passed + failed + errored; // skip doesn't count toward pass rate
-  const passRate = evaluated > 0 ? passed / evaluated : 1.0;
+
+  // No evaluated tests means no reference images exist — treat as failure, not success
+  if (evaluated === 0) {
+    return { tier, total: tierResults.length, passed: 0, failed: 0, skipped, errored: 0, passRate: 0, threshold, meetsThreshold: false };
+  }
+
+  const passRate = passed / evaluated;
 
   return {
     tier,

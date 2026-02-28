@@ -37,6 +37,7 @@ import {
   CommentReference,
   TextWrappingType,
   TextWrappingSide,
+  SimpleField,
 } from "docx";
 import * as fs from "fs";
 import * as path from "path";
@@ -359,7 +360,7 @@ async function gen08HeadersFooters(): Promise<void> {
         first: new Header({ children: [new Paragraph({ children: [new TextRun({ text: "CONFIDENTIAL DOCUMENT", bold: true, color: "C00000" })], alignment: AlignmentType.CENTER })] }),
       },
       footers: {
-        default: new Footer({ children: [new Paragraph({ children: [new TextRun("© 2024 Project Sovereign Corp. All rights reserved. | Page "), new TextRun({ children: ["PAGE"] }), new TextRun(" of "), new TextRun({ children: ["NUMPAGES"] })], alignment: AlignmentType.CENTER })] }),
+        default: new Footer({ children: [new Paragraph({ children: [new TextRun("© 2024 Project Sovereign Corp. All rights reserved. | Page "), new SimpleField("PAGE"), new TextRun(" of "), new SimpleField("NUMPAGES")], alignment: AlignmentType.CENTER })] }),
         first: new Footer({ children: [new Paragraph({ children: [new TextRun("First Page Footer — Do Not Distribute")], alignment: AlignmentType.CENTER })] }),
       },
       children: [
@@ -380,7 +381,7 @@ async function gen09PageNumbers(): Promise<void> {
   type STVal = (typeof SectionType)[keyof typeof SectionType];
   const makeSection = (title: string, content: string, sType?: STVal) => ({
     properties: { type: sType, page: { pageNumbers: { start: 1, formatType: NumberFormat.DECIMAL } } },
-    footers: { default: new Footer({ children: [new Paragraph({ children: [new TextRun(`${title} — Page `), new TextRun({ children: ["PAGE"] })], alignment: AlignmentType.CENTER })] }) },
+    footers: { default: new Footer({ children: [new Paragraph({ children: [new TextRun(`${title} — Page `), new SimpleField("PAGE")], alignment: AlignmentType.CENTER })] }) },
     children: [
       new Paragraph({ text: title, heading: HeadingLevel.HEADING_1 }),
       new Paragraph({ children: [new TextRun(content)] }),
