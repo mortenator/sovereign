@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useDocumentStore } from '@/store/documentStore'
 import { useEditorStore } from '@/store/editorStore'
+import { execOOMethod } from '@/lib/onlyoffice'
 import * as Slider from '@radix-ui/react-slider'
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,11 @@ export function StatusBar() {
   const { wordCount, pageCount, currentPage, documentTitle, setDocumentTitle } =
     useDocumentStore()
   const { zoomLevel, setZoomLevel } = useEditorStore()
+
+  const applyZoom = (zoom: number) => {
+    setZoomLevel(zoom)
+    execOOMethod('Zoom', null, zoom)
+  }
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(documentTitle)
 
@@ -78,7 +84,7 @@ export function StatusBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => setZoomLevel(Math.max(25, zoomLevel - 25))}
+          onClick={() => applyZoom(Math.max(25, zoomLevel - 25))}
           aria-label="Zoom out"
           className="text-white hover:bg-blue-600 dark:hover:bg-blue-800 h-5 w-5"
         >
@@ -92,7 +98,7 @@ export function StatusBar() {
             min={25}
             max={200}
             step={5}
-            onValueChange={([val]) => setZoomLevel(val)}
+            onValueChange={([val]) => applyZoom(val)}
             aria-label="Zoom level"
           >
             <Slider.Track className="bg-blue-500 dark:bg-blue-700 relative grow rounded-full h-0.5">
@@ -110,7 +116,7 @@ export function StatusBar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => setZoomLevel(Math.min(200, zoomLevel + 25))}
+          onClick={() => applyZoom(Math.min(200, zoomLevel + 25))}
           aria-label="Zoom in"
           className="text-white hover:bg-blue-600 dark:hover:bg-blue-800 h-5 w-5"
         >
@@ -122,7 +128,7 @@ export function StatusBar() {
           {ZOOM_PRESETS.map((z) => (
             <button
               key={z}
-              onClick={() => setZoomLevel(z)}
+              onClick={() => applyZoom(z)}
               className={`text-[10px] px-1 rounded transition-colors ${
                 zoomLevel === z
                   ? 'bg-blue-500 dark:bg-blue-700'

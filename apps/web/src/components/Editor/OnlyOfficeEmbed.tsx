@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadOOScript, buildOOConfig, initOOConnector, destroyOOConnector } from '@/lib/onlyoffice'
+import { loadOOScript, buildOOConfig, initOOConnector, destroyOOConnector, execOOMethod } from '@/lib/onlyoffice'
 import { useEditorStore } from '@/store/editorStore'
 import { useDocumentStore } from '@/store/documentStore'
 
@@ -14,19 +14,15 @@ interface OnlyOfficeEmbedProps {
   onEditorCreated?: (editor: OOEditor) => void
 }
 
-/** Query word count via the OO SDK connector and update the document store. */
-function queryWordCount(editorRef: React.RefObject<OOEditor | null>) {
-  try {
-    const conn = editorRef.current?.createConnector?.()
-    conn?.executeMethod('GetWordsCount', (count: number) => {
-      if (typeof count === 'number') {
-        // Access Zustand store outside React tree — valid for event callbacks.
-        useDocumentStore.getState().setWordCount(count)
-      }
-    })
-  } catch {
-    // GetWordsCount may not be available in all OO DS versions — safe to ignore.
-  }
+/** Query word count via the cached OO SDK connector and update the document store. */
+function queryWordCount() {
+  // Use execOOMethod (cached connector) — createConnector() on every call leaks SDK subscriptions.
+  execOOMethod('GetWordsCount', (count: number) => {
+    if (typeof count === 'number') {
+      // Access Zustand store outside React tree — valid for event callbacks.
+      useDocumentStore.getState().setWordCount(count)
+    }
+  })
 }
 
 export function OnlyOfficeEmbed({
@@ -132,12 +128,12 @@ export function OnlyOfficeEmbed({
           setEditorLoading(false)
           onReady?.()
           // Fetch initial word count once the document has fully loaded.
-          queryWordCount(editorInstanceRef)
+          queryWordCount()
         },
         onDocumentStateChange: (e: { data: boolean }) => {
           onStateChange?.(e.data)
           // Update word count on every document change event.
-          queryWordCount(editorInstanceRef)
+          queryWordCount()
         },
         onError: (e: { data: { errorCode: number; errorDescription: string } }) => {
           setEditorError(`Error ${e.data.errorCode}: ${e.data.errorDescription}`)

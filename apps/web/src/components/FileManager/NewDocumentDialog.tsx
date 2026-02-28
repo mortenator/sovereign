@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDocumentStore } from '@/store/documentStore'
-import { generateDocumentKey } from '@/lib/onlyoffice'
 
 interface NewDocumentDialogProps {
   open: boolean
@@ -31,16 +30,15 @@ export function NewDocumentDialog({ open, onOpenChange }: NewDocumentDialogProps
     if (e.key === 'Enter') handleCreate()
   }
 
-  // generateDocumentKey is used on create to ensure a fresh key
-  void generateDocumentKey
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New Document</DialogTitle>
           <DialogDescription>
-            Create a new blank document.
+            Opens a shared sample template (a dedicated blank-document server
+            endpoint is not yet available). Your edits will be isolated by a
+            unique document key but the base file is shared.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 mt-2">

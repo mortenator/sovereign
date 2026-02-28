@@ -60,11 +60,11 @@ export function LayoutTab() {
     alert(`"${feature}" is not available via the ribbon.\nUse the Layout menu inside the editor.`)
 
   const handleIndentDecrease = () => {
-    execOOMethod('ParagraphIndent', null, { type: 'decrease' })
+    execOOMethod('DecreaseIndent')
   }
 
   const handleIndentIncrease = () => {
-    execOOMethod('ParagraphIndent', null, { type: 'increase' })
+    execOOMethod('IncreaseIndent')
   }
 
   return (

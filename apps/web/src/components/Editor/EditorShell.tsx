@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { useDocumentStore } from '@/store/documentStore'
 import { OnlyOfficeEmbed } from './OnlyOfficeEmbed'
@@ -21,6 +21,10 @@ export function EditorShell() {
 
   const { documentKey, documentUrl, documentTitle, callbackUrl, setDirty } =
     useDocumentStore()
+
+  // Incrementing this key forces EditorErrorBoundary (and its child) to fully
+  // unmount and remount, giving a clean slate after a crash.
+  const [editorMountKey, setEditorMountKey] = useState(0)
 
   // Stable callbacks — must not change on re-render or OO editor will reinitialize
   const handleReady = useCallback(() => setEditorReady(true), [setEditorReady])
@@ -97,7 +101,10 @@ export function EditorShell() {
           </div>
         )}
 
-        <EditorErrorBoundary>
+        <EditorErrorBoundary
+          key={editorMountKey}
+          onReset={() => setEditorMountKey((k) => k + 1)}
+        >
           <OnlyOfficeEmbed
             documentKey={documentKey}
             documentUrl={documentUrl}

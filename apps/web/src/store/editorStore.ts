@@ -80,7 +80,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   setDarkMode: (dark) => set({ isDarkMode: dark }),
   setFindOpen: (open) => set({ isFindOpen: open }),
-  // TODO: wire to connector.executeMethod("Zoom", null, zoom) once OO connector is wired in
+  // Store-only update; callers in StatusBar also call execOOMethod('Zoom', null, zoom)
+  // to apply the zoom level to the live OO editor.
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
   setFormatState: (state) => set(state),
 }))

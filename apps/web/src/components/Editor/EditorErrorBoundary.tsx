@@ -3,6 +3,8 @@ import { AlertTriangle } from 'lucide-react'
 
 interface Props {
   children: ReactNode
+  /** Called when the user clicks "Try again" — parent should increment a key to remount the editor. */
+  onReset?: () => void
 }
 
 interface State {
@@ -34,7 +36,13 @@ export class EditorErrorBoundary extends Component<Props, State> {
             </p>
             <button
               className="text-sm text-blue-600 dark:text-blue-400 underline"
-              onClick={() => this.setState({ hasError: false, error: null })}
+              onClick={() => {
+                // Clearing React error state alone is not enough — the OO iframe is
+                // destroyed. Calling onReset() causes the parent to change the key on
+                // this boundary, which fully unmounts + remounts OnlyOfficeEmbed.
+                this.setState({ hasError: false, error: null })
+                this.props.onReset?.()
+              }}
             >
               Try again
             </button>
