@@ -115,5 +115,9 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+    // No `editorApi` variable exists in this hook — editor access goes through
+    // window.editor (a global ref set by OnlyOfficeEmbed) and execOOMethod
+    // (which uses a module-level cached connector). Neither is React state, so
+    // neither needs to appear in the dependency array to avoid stale closures.
   }, [handleShortcut])
 }

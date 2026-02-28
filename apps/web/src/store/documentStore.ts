@@ -1,3 +1,10 @@
+// Store boundary: documentStore owns document identity and content metadata
+// (key, URL, title, word/page counts, dirty flag). editorStore owns UI/shell
+// state (active ribbon tab, sidebar panel, loading/error state, dark mode,
+// format selection mirror). The split avoids re-rendering editor UI components
+// on every keystroke (documentStore updates) and avoids re-rendering the
+// document pane on every ribbon interaction. Consolidation into one store would
+// require careful selector memoisation to preserve the same perf characteristics.
 import { create } from 'zustand'
 import { generateDocumentKey } from '@/lib/onlyoffice'
 import { SAMPLE_DOC_URL, CALLBACK_URL, type DocumentMeta } from '@/lib/fileUtils'

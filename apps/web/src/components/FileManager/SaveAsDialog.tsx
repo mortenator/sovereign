@@ -38,7 +38,14 @@ export function SaveAsDialog({ open, onOpenChange }: SaveAsDialogProps) {
   const [format, setFormat] = useState<ExportFormat>('docx')
 
   const handleSave = () => {
-    const name = filename.trim()
+    // Strip path separators and OS-reserved characters to prevent invalid
+    // filenames if this value is ever forwarded to a backend. Limit length to
+    // 255 chars (common FS maximum). This is defensive sanitisation — the
+    // field is currently client-side only (used for downloadAs and title state).
+    const name = filename
+      .trim()
+      .replace(/[/\\<>:"|?*\x00-\x1f]/g, '')
+      .slice(0, 255)
     if (name && name !== documentTitle) {
       setDocumentTitle(name)
     }

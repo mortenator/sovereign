@@ -1,8 +1,36 @@
 // Strip trailing slashes so env vars like VITE_OO_SERVER_URL=http://host/ don't
 // produce double-slash URLs (e.g. http://host//web-apps/...).
-const OO_SERVER_URL = (import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:8080').replace(/\/$/, '')
+//
+// SECURITY: Validate that both URLs use http/https. Non-http schemes (e.g.
+// javascript:, data:) injected into a <script src> or as a callbackUrl would
+// allow script injection or SSRF against the OO Document Server. Since these
+// values come from Vite env vars (set at build time by developers/CI), we throw
+// early to surface misconfiguration rather than silently serving a broken app.
+const _rawOOServerUrl = import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:8080'
+if (!/^https?:\/\//i.test(_rawOOServerUrl)) {
+  throw new Error(
+    `[Sovereign] VITE_OO_SERVER_URL must start with http:// or https://. Got: "${_rawOOServerUrl}"`
+  )
+}
+const OO_SERVER_URL = _rawOOServerUrl.replace(/\/$/, '')
 const OO_API_SCRIPT = `${OO_SERVER_URL}/web-apps/apps/api/documents/api.js`
-const APP_URL = (import.meta.env.VITE_APP_URL ?? 'http://localhost:5173').replace(/\/$/, '')
+
+const _rawAppUrl = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
+if (import.meta.env.VITE_APP_URL && !/^https?:\/\//i.test(_rawAppUrl)) {
+  throw new Error(
+    `[Sovereign] VITE_APP_URL must start with http:// or https://. Got: "${_rawAppUrl}"`
+  )
+}
+if (import.meta.env.PROD && !import.meta.env.VITE_APP_URL) {
+  // The localhost fallback is only valid for local dev. In production the OO
+  // Document Server calls this URL for save callbacks and document fetches —
+  // it must be the public HTTPS URL of the app.
+  console.warn(
+    '[Sovereign] VITE_APP_URL is not set. Falling back to http://localhost:5173, ' +
+    'which will not work in production. Set VITE_APP_URL to the public app URL.'
+  )
+}
+const APP_URL = _rawAppUrl.replace(/\/$/, '')
 
 // SECURITY: In production the JWT token MUST be signed server-side with the OO JWT secret
 // and injected into this page — never bundle the secret in client code.
@@ -105,34 +133,22 @@ export function buildOOConfig({
 // runtime-configurable (VITE_OO_SERVER_URL), so the hash is unknowable at build
 // time. Mitigation: serve the OO Document Server from a controlled, trusted host
 // (your own infrastructure). Never point VITE_OO_SERVER_URL at a third-party host.
+
+// Shared promise used by all concurrent loadOOScript() callers. Without this,
+// multiple rapid mounts (e.g. React Strict Mode double-invoke, tabs switching) each
+// append their own <script> tag before any load event fires, causing duplicate OO
+// SDK initialisation and unpredictable state.
+let _ooScriptPromise: Promise<void> | null = null
+
 export function loadOOScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
+  if (window.DocsAPI) return Promise.resolve()
+  if (_ooScriptPromise) return _ooScriptPromise
+
+  _ooScriptPromise = new Promise<void>((resolve, reject) => {
+    // Re-check after promise construction — synchronous re-entrant callers may
+    // have already resolved DocsAPI between the outer check and here.
     if (window.DocsAPI) {
       resolve()
-      return
-    }
-
-    const existingScript = document.querySelector(
-      `script[src="${OO_API_SCRIPT}"]`
-    ) as HTMLScriptElement | null
-
-    if (existingScript) {
-      // Script tag already in DOM — check terminal states first to avoid hanging
-      if (window.DocsAPI) {
-        resolve()
-        return
-      }
-      if (existingScript.dataset.ooState === 'error') {
-        reject(new Error('Failed to load OnlyOffice API script'))
-        return
-      }
-      existingScript.addEventListener('load', () => resolve())
-      existingScript.addEventListener('error', () =>
-        reject(new Error('Failed to load OnlyOffice API script'))
-      )
-      // Race guard: if the script's load event already fired between our checks
-      // and listener attachment, DocsAPI will be set — resolve immediately.
-      if (window.DocsAPI) resolve()
       return
     }
 
@@ -140,11 +156,14 @@ export function loadOOScript(): Promise<void> {
     script.src = OO_API_SCRIPT
     script.onload = () => resolve()
     script.onerror = () => {
-      script.dataset.ooState = 'error'
+      // Clear cache so the next call can retry (e.g. after network recovery).
+      _ooScriptPromise = null
       reject(new Error(`Failed to load OnlyOffice API from ${OO_API_SCRIPT}`))
     }
     document.head.appendChild(script)
   })
+
+  return _ooScriptPromise
 }
 
 // ── Connector cache ──────────────────────────────────────────────────────────

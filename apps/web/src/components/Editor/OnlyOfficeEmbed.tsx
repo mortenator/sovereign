@@ -38,6 +38,10 @@ export function OnlyOfficeEmbed({
   const containerRef = useRef<HTMLDivElement>(null)
   const editorInstanceRef = useRef<OOEditor | null>(null)
   const mountedRef = useRef(true)
+  // Incremented on every initEditor invocation. Async continuations compare
+  // against this value to detect stale initialisation (e.g. rapid prop changes
+  // that trigger a new init before the previous one finishes loading the script).
+  const initIdRef = useRef(0)
   const { isDarkMode, setEditorLoading, setEditorError } = useEditorStore()
 
   // Track isDarkMode in a ref so initEditor can read the current value without
@@ -56,13 +60,9 @@ export function OnlyOfficeEmbed({
     documentTitleRef.current = documentTitle
   }, [documentTitle])
 
-  // Track mount state so async callbacks don't update state after unmount.
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  // mountedRef is managed inside the single effect below — keeping mount
+  // tracking and editor lifecycle in the same effect ensures their cleanup
+  // order is deterministic and avoids the editorInstanceRef going stale.
 
   const destroyEditor = useCallback(() => {
     if (editorInstanceRef.current) {
@@ -87,6 +87,12 @@ export function OnlyOfficeEmbed({
   const initEditor = useCallback(async () => {
     if (!containerRef.current) return
 
+    // Stamp this invocation so stale async continuations can self-cancel.
+    // Without this, a new initEditor() triggered by a prop change can race
+    // with an in-flight loadOOScript() from a previous invocation, resulting
+    // in two DocsAPI.DocEditor instances for the same container.
+    const myId = ++initIdRef.current
+
     setEditorLoading(true)
     destroyEditor()
 
@@ -101,9 +107,9 @@ export function OnlyOfficeEmbed({
     try {
       await loadOOScript()
     } catch (err) {
-      if (!mountedRef.current) {
-        // Component unmounted while script was loading — reset loading flag so
-        // the store isn't left with isEditorLoading: true indefinitely.
+      if (!mountedRef.current || initIdRef.current !== myId) {
+        // Component unmounted or a newer init started while the script was
+        // loading — reset loading flag so the store isn't stuck indefinitely.
         setEditorLoading(false)
         return
       }
@@ -113,7 +119,7 @@ export function OnlyOfficeEmbed({
       return
     }
 
-    if (!mountedRef.current) {
+    if (!mountedRef.current || initIdRef.current !== myId) {
       setEditorLoading(false)
       return
     }
@@ -159,11 +165,19 @@ export function OnlyOfficeEmbed({
 
     try {
       const editor = new window.DocsAPI.DocEditor('onlyoffice-editor-container', fullConfig)
+      if (!mountedRef.current || initIdRef.current !== myId) {
+        // A newer init started between DocsAPI construction and now — clean up
+        // the editor we just created rather than tracking a stale instance.
+        try {
+          (editor as OOEditor & { destroy?(): void }).destroyEditor?.()
+        } catch { /* ignore */ }
+        return
+      }
       editorInstanceRef.current = editor
       window.editor = editor
       onEditorCreated?.(editor)
     } catch (err) {
-      if (!mountedRef.current) return
+      if (!mountedRef.current || initIdRef.current !== myId) return
       const msg = err instanceof Error ? err.message : 'Failed to initialize editor'
       setEditorError(msg)
       onError?.(0, msg)
@@ -184,9 +198,16 @@ export function OnlyOfficeEmbed({
     destroyEditor,
   ])
 
+  // Single effect for both mount-state tracking and editor lifecycle. Keeping
+  // them together ensures mountedRef is set to false *before* destroyEditor()
+  // runs in the same cleanup pass, so any in-flight async init sees a
+  // consistent view of both flags (mountedRef and initIdRef) regardless of
+  // React's effect cleanup ordering across separate effects.
   useEffect(() => {
+    mountedRef.current = true
     initEditor()
     return () => {
+      mountedRef.current = false
       destroyEditor()
     }
   }, [initEditor, destroyEditor])
