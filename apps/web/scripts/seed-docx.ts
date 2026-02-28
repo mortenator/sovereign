@@ -1,6 +1,13 @@
 /**
  * Seed script: generates public/sample.docx
- * Run: tsx scripts/seed-docx.ts
+ * Run directly: tsx scripts/seed-docx.ts
+ *
+ * This script also runs automatically via the "prebuild" npm hook before every
+ * `npm run build`. That is intentional: sample.docx must be present in public/
+ * so Vite can bundle it as a static asset. The script is pure Node.js (no network
+ * access, no user data) and is safe in CI/CD pipelines. It cannot be imported or
+ * executed by browser code — it is excluded from the Vite build by residing under
+ * scripts/ rather than src/.
  */
 import {
   Document,

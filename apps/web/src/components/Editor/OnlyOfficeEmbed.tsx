@@ -90,14 +90,22 @@ export function OnlyOfficeEmbed({
     try {
       await loadOOScript()
     } catch (err) {
-      if (!mountedRef.current) return
+      if (!mountedRef.current) {
+        // Component unmounted while script was loading — reset loading flag so
+        // the store isn't left with isEditorLoading: true indefinitely.
+        setEditorLoading(false)
+        return
+      }
       const msg = err instanceof Error ? err.message : 'Failed to load OnlyOffice'
       setEditorError(msg)
       onError?.(0, msg)
       return
     }
 
-    if (!mountedRef.current) return
+    if (!mountedRef.current) {
+      setEditorLoading(false)
+      return
+    }
 
     if (!window.DocsAPI) {
       const msg = 'OnlyOffice Document Server not available. Is it running at localhost:8080?'

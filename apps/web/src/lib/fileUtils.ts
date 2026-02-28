@@ -1,4 +1,6 @@
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
+// Strip trailing slash so env vars like VITE_APP_URL=http://host/ don't produce
+// double-slash URLs (e.g. http://host//sample.docx).
+const APP_URL = (import.meta.env.VITE_APP_URL ?? 'http://localhost:5173').replace(/\/$/, '')
 
 export const SAMPLE_DOC_URL = `${APP_URL}/sample.docx`
 export const CALLBACK_URL = `${APP_URL}/api/docs/callback`

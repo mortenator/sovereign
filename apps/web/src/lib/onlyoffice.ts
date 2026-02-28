@@ -1,6 +1,8 @@
-const OO_SERVER_URL = import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:8080'
+// Strip trailing slashes so env vars like VITE_OO_SERVER_URL=http://host/ don't
+// produce double-slash URLs (e.g. http://host//web-apps/...).
+const OO_SERVER_URL = (import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 const OO_API_SCRIPT = `${OO_SERVER_URL}/web-apps/apps/api/documents/api.js`
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
+const APP_URL = (import.meta.env.VITE_APP_URL ?? 'http://localhost:5173').replace(/\/$/, '')
 
 // SECURITY: In production the JWT token MUST be signed server-side with the OO JWT secret
 // and injected into this page — never bundle the secret in client code.
@@ -87,6 +89,11 @@ export function buildOOConfig({
   }
 }
 
+// SECURITY NOTE — no Subresource Integrity (SRI) on the OO API script:
+// SRI requires a known compile-time hash, but the OO Document Server URL is
+// runtime-configurable (VITE_OO_SERVER_URL), so the hash is unknowable at build
+// time. Mitigation: serve the OO Document Server from a controlled, trusted host
+// (your own infrastructure). Never point VITE_OO_SERVER_URL at a third-party host.
 export function loadOOScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (window.DocsAPI) {
