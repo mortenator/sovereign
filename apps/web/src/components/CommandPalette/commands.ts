@@ -1,4 +1,4 @@
-import { execFormat } from '@/lib/onlyoffice'
+import { execOOMethod } from '@/lib/onlyoffice'
 
 export interface CommandItem {
   id: string
@@ -29,7 +29,7 @@ export function buildCommands(callbacks: {
       description: 'Toggle bold formatting',
       shortcut: '⌘B',
       category: 'Format',
-      action: () => execFormat('bold'),
+      action: () => execOOMethod('bold'),
       keywords: ['bold', 'strong', 'format'],
     },
     {
@@ -38,7 +38,7 @@ export function buildCommands(callbacks: {
       description: 'Toggle italic formatting',
       shortcut: '⌘I',
       category: 'Format',
-      action: () => execFormat('italic'),
+      action: () => execOOMethod('italic'),
       keywords: ['italic', 'em', 'format'],
     },
     {
@@ -47,7 +47,7 @@ export function buildCommands(callbacks: {
       description: 'Toggle underline',
       shortcut: '⌘U',
       category: 'Format',
-      action: () => execFormat('underline'),
+      action: () => execOOMethod('underline'),
       keywords: ['underline', 'format'],
     },
     {
@@ -55,7 +55,7 @@ export function buildCommands(callbacks: {
       label: 'Strikethrough',
       description: 'Toggle strikethrough',
       category: 'Format',
-      action: () => execFormat('strikeThrough'),
+      action: () => execOOMethod('strikeThrough'),
       keywords: ['strikethrough', 'strike', 'format'],
     },
     {
@@ -63,7 +63,7 @@ export function buildCommands(callbacks: {
       label: 'Clear Formatting',
       description: 'Remove all formatting',
       category: 'Format',
-      action: () => execFormat('removeFormat'),
+      action: () => execOOMethod('removeFormat'),
       keywords: ['clear', 'reset', 'format'],
     },
 
@@ -73,7 +73,7 @@ export function buildCommands(callbacks: {
       label: 'Align Left',
       shortcut: '⌘L',
       category: 'Format',
-      action: () => execFormat('justifyLeft'),
+      action: () => execOOMethod('justifyLeft'),
       keywords: ['align', 'left'],
     },
     {
@@ -81,7 +81,7 @@ export function buildCommands(callbacks: {
       label: 'Center',
       shortcut: '⌘E',
       category: 'Format',
-      action: () => execFormat('justifyCenter'),
+      action: () => execOOMethod('justifyCenter'),
       keywords: ['align', 'center'],
     },
     {
@@ -89,7 +89,7 @@ export function buildCommands(callbacks: {
       label: 'Align Right',
       shortcut: '⌘R',
       category: 'Format',
-      action: () => execFormat('justifyRight'),
+      action: () => execOOMethod('justifyRight'),
       keywords: ['align', 'right'],
     },
     {
@@ -97,7 +97,7 @@ export function buildCommands(callbacks: {
       label: 'Justify',
       shortcut: '⌘J',
       category: 'Format',
-      action: () => execFormat('justifyFull'),
+      action: () => execOOMethod('justifyFull'),
       keywords: ['align', 'justify', 'full'],
     },
 
@@ -108,7 +108,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Normal paragraph style',
       shortcut: '⌥0',
       category: 'Styles',
-      action: () => document.execCommand('formatBlock', false, 'p'),
+      action: () => execOOMethod('setStyle', null, 'p'),
       keywords: ['normal', 'paragraph', 'style'],
     },
     {
@@ -117,7 +117,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 1 style',
       shortcut: '⌥1',
       category: 'Styles',
-      action: () => document.execCommand('formatBlock', false, 'h1'),
+      action: () => execOOMethod('setStyle', null, 'h1'),
       keywords: ['heading', 'h1', 'title'],
     },
     {
@@ -126,7 +126,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 2 style',
       shortcut: '⌥2',
       category: 'Styles',
-      action: () => document.execCommand('formatBlock', false, 'h2'),
+      action: () => execOOMethod('setStyle', null, 'h2'),
       keywords: ['heading', 'h2', 'subtitle'],
     },
     {
@@ -135,7 +135,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 3 style',
       shortcut: '⌥3',
       category: 'Styles',
-      action: () => document.execCommand('formatBlock', false, 'h3'),
+      action: () => execOOMethod('setStyle', null, 'h3'),
       keywords: ['heading', 'h3'],
     },
 
@@ -145,7 +145,7 @@ export function buildCommands(callbacks: {
       label: 'Bullet List',
       description: 'Insert unordered list',
       category: 'Insert',
-      action: () => execFormat('insertUnorderedList'),
+      action: () => execOOMethod('insertUnorderedList'),
       keywords: ['bullet', 'list', 'unordered'],
     },
     {
@@ -153,7 +153,7 @@ export function buildCommands(callbacks: {
       label: 'Numbered List',
       description: 'Insert ordered list',
       category: 'Insert',
-      action: () => execFormat('insertOrderedList'),
+      action: () => execOOMethod('insertOrderedList'),
       keywords: ['number', 'list', 'ordered'],
     },
 

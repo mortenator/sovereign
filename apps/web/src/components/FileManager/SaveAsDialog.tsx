@@ -33,11 +33,15 @@ const FORMATS: { value: ExportFormat; label: string }[] = [
 ]
 
 export function SaveAsDialog({ open, onOpenChange }: SaveAsDialogProps) {
-  const { documentTitle } = useDocumentStore()
+  const { documentTitle, setDocumentTitle } = useDocumentStore()
   const [filename, setFilename] = useState(documentTitle)
   const [format, setFormat] = useState<ExportFormat>('docx')
 
   const handleSave = () => {
+    const name = filename.trim()
+    if (name && name !== documentTitle) {
+      setDocumentTitle(name)
+    }
     window.editor?.downloadAs(format)
     onOpenChange(false)
   }

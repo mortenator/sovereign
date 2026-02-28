@@ -1,5 +1,7 @@
-export const SAMPLE_DOC_URL = '/sample.docx'
-export const CALLBACK_URL = '/api/docs/callback'
+const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
+
+export const SAMPLE_DOC_URL = `${APP_URL}/sample.docx`
+export const CALLBACK_URL = `${APP_URL}/api/docs/callback`
 
 export interface DocumentMeta {
   id: string

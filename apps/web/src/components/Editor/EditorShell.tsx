@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { useDocumentStore } from '@/store/documentStore'
 import { OnlyOfficeEmbed } from './OnlyOfficeEmbed'
@@ -19,6 +20,16 @@ export function EditorShell() {
 
   const { documentKey, documentUrl, documentTitle, callbackUrl, setDirty } =
     useDocumentStore()
+
+  // Stable callbacks — must not change on re-render or OO editor will reinitialize
+  const handleReady = useCallback(() => setEditorReady(true), [setEditorReady])
+  const handleError = useCallback(
+    (code: number, desc: string) => setEditorError(`Error ${code}: ${desc}`),
+    [setEditorError]
+  )
+  const handleEditorCreated = useCallback((editor: OOEditor) => {
+    window.editor = editor
+  }, [])
 
   const showOutline = sidebarPanel === 'outline'
   const showComments = sidebarPanel === 'comments'
@@ -90,12 +101,10 @@ export function EditorShell() {
           documentUrl={documentUrl}
           documentTitle={documentTitle}
           callbackUrl={callbackUrl}
-          onReady={() => setEditorReady(true)}
+          onReady={handleReady}
           onStateChange={setDirty}
-          onError={(code, desc) => setEditorError(`Error ${code}: ${desc}`)}
-          onEditorCreated={(editor) => {
-            window.editor = editor
-          }}
+          onError={handleError}
+          onEditorCreated={handleEditorCreated}
         />
       </main>
 

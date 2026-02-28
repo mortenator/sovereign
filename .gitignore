@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.local
+
+# Auto-generated sample document (produced by prebuild script)
+apps/web/public/sample.docx

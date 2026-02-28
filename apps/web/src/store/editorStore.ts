@@ -77,25 +77,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   toggleCommandPalette: () =>
     set((state) => ({ isCommandPaletteOpen: !state.isCommandPaletteOpen })),
-  toggleDarkMode: () =>
-    set((state) => {
-      const next = !state.isDarkMode
-      if (next) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-      return { isDarkMode: next }
-    }),
-  setDarkMode: (dark) => {
-    if (dark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-    set({ isDarkMode: dark })
-  },
+  toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  setDarkMode: (dark) => set({ isDarkMode: dark }),
   setFindOpen: (open) => set({ isFindOpen: open }),
+  // TODO: wire to connector.executeMethod("Zoom", null, zoom) once OO connector is wired in
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
   setFormatState: (state) => set(state),
 }))

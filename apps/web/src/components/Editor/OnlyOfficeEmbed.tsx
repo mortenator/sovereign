@@ -35,6 +35,7 @@ export function OnlyOfficeEmbed({
         // ignore destroy errors
       }
       editorInstanceRef.current = null
+      window.editor = undefined
     }
   }, [])
 

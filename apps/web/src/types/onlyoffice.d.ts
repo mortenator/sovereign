@@ -63,7 +63,12 @@ interface OOConfig {
   width?: string;
 }
 
+interface OOConnector {
+  executeMethod(name: string, callback: (() => void) | null, data?: unknown): void;
+}
+
 interface OOEditor {
+  createConnector?(): OOConnector;
   destroyEditor(): void;
   downloadAs(format: string): void;
   getConfig(): OOConfig;

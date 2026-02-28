@@ -1,5 +1,5 @@
 import { useEditorStore } from '@/store/editorStore'
-import { execFormat } from '@/lib/onlyoffice'
+import { execOOMethod } from '@/lib/onlyoffice'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -125,16 +125,10 @@ export function HomeTab() {
   const { isBold, isItalic, isUnderline, isStrikethrough, fontFamily, fontSize, alignment, setFindOpen } =
     useEditorStore()
 
-  const fmt = (cmd: string, value?: string) => execFormat(cmd, value)
+  const fmt = (cmd: string, value?: string) => execOOMethod(cmd, null, value)
 
   const applyStyle = (style: string) => {
-    if (['h1', 'h2', 'h3', 'h4'].includes(style)) {
-      document.execCommand('formatBlock', false, style)
-    } else if (style === 'p') {
-      document.execCommand('formatBlock', false, 'p')
-    } else if (style === 'blockquote') {
-      document.execCommand('formatBlock', false, 'blockquote')
-    }
+    execOOMethod('setStyle', null, style)
   }
 
   return (
@@ -163,7 +157,7 @@ export function HomeTab() {
           <Select
             value={fontFamily}
             onValueChange={(val) => {
-              execFormat('fontName', val)
+              execOOMethod('fontName', null, val)
             }}
           >
             <SelectTrigger className="w-32 h-6 text-xs" aria-label="Font family">
@@ -181,7 +175,7 @@ export function HomeTab() {
           <Select
             value={String(fontSize)}
             onValueChange={(val) => {
-              execFormat('fontSize', val)
+              execOOMethod('fontSize', null, val)
             }}
           >
             <SelectTrigger className="w-14 h-6 text-xs" aria-label="Font size">

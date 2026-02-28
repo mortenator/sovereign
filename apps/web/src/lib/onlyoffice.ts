@@ -1,5 +1,6 @@
 const OO_SERVER_URL = import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:8080'
 const OO_API_SCRIPT = `${OO_SERVER_URL}/web-apps/apps/api/documents/api.js`
+const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
 
 export function getOOApiScriptUrl(): string {
   return OO_API_SCRIPT
@@ -7,6 +8,12 @@ export function getOOApiScriptUrl(): string {
 
 export function generateDocumentKey(): string {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Ensure a URL is absolute. OO Document Server can't fetch relative URLs. */
+function toAbsoluteUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `${APP_URL}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
 export function buildOOConfig({
@@ -31,7 +38,7 @@ export function buildOOConfig({
       fileType: 'docx',
       key: documentKey,
       title: documentTitle,
-      url: documentUrl,
+      url: toAbsoluteUrl(documentUrl),
       permissions: {
         comment: true,
         download: true,
@@ -42,7 +49,7 @@ export function buildOOConfig({
     },
     documentType: 'word',
     editorConfig: {
-      callbackUrl,
+      callbackUrl: toAbsoluteUrl(callbackUrl),
       lang: 'en',
       user: {
         id: userId,
@@ -75,8 +82,20 @@ export function loadOOScript(): Promise<void> {
       return
     }
 
-    const existingScript = document.querySelector(`script[src="${OO_API_SCRIPT}"]`)
+    const existingScript = document.querySelector(
+      `script[src="${OO_API_SCRIPT}"]`
+    ) as HTMLScriptElement | null
+
     if (existingScript) {
+      // Script tag already in DOM — check terminal states first to avoid hanging
+      if (window.DocsAPI) {
+        resolve()
+        return
+      }
+      if (existingScript.dataset.ooState === 'error') {
+        reject(new Error('Failed to load OnlyOffice API script'))
+        return
+      }
       existingScript.addEventListener('load', () => resolve())
       existingScript.addEventListener('error', () =>
         reject(new Error('Failed to load OnlyOffice API script'))
@@ -87,16 +106,30 @@ export function loadOOScript(): Promise<void> {
     const script = document.createElement('script')
     script.src = OO_API_SCRIPT
     script.onload = () => resolve()
-    script.onerror = () =>
+    script.onerror = () => {
+      script.dataset.ooState = 'error'
       reject(new Error(`Failed to load OnlyOffice API from ${OO_API_SCRIPT}`))
+    }
     document.head.appendChild(script)
   })
 }
 
-export function execFormat(command: string, value?: string): boolean {
+/**
+ * Execute a method on the active OnlyOffice editor via the connector API.
+ * The connector bridges the host page and the editor iframe using the
+ * documented OO JS SDK approach (DocsAPI connector.executeMethod).
+ *
+ * Usage: execOOMethod('ChangeFont', null, { Name: 'Arial', Size: 14 })
+ */
+export function execOOMethod(
+  methodName: string,
+  callback: (() => void) | null = null,
+  data?: unknown
+): void {
   try {
-    return document.execCommand(command, false, value ?? '')
+    const connector = window.editor?.createConnector?.()
+    connector?.executeMethod(methodName, callback, data)
   } catch {
-    return false
+    // Editor not ready or method unsupported — safe to ignore
   }
 }

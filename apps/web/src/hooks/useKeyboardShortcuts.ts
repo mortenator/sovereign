@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react'
 import { SHORTCUTS, matchesShortcut } from '@/lib/shortcuts'
 import { useEditorStore } from '@/store/editorStore'
-import { execFormat } from '@/lib/onlyoffice'
+import { execOOMethod } from '@/lib/onlyoffice'
 
 export function useKeyboardShortcuts() {
   const {
@@ -23,10 +23,10 @@ export function useKeyboardShortcuts() {
           window.editor?.print()
           break
         case 'undo':
-          document.execCommand('undo')
+          execOOMethod('undo')
           break
         case 'redo':
-          document.execCommand('redo')
+          execOOMethod('redo')
           break
         case 'find':
           setFindOpen(true)
@@ -35,25 +35,25 @@ export function useKeyboardShortcuts() {
           setFindOpen(true)
           break
         case 'bold':
-          execFormat('bold')
+          execOOMethod('bold')
           break
         case 'italic':
-          execFormat('italic')
+          execOOMethod('italic')
           break
         case 'underline':
-          execFormat('underline')
+          execOOMethod('underline')
           break
         case 'alignLeft':
-          execFormat('justifyLeft')
+          execOOMethod('justifyLeft')
           break
         case 'alignCenter':
-          execFormat('justifyCenter')
+          execOOMethod('justifyCenter')
           break
         case 'alignRight':
-          execFormat('justifyRight')
+          execOOMethod('justifyRight')
           break
         case 'alignJustify':
-          execFormat('justifyFull')
+          execOOMethod('justifyFull')
           break
         case 'fontSizeUp':
           // Handled by font size controls
