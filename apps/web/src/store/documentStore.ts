@@ -46,6 +46,12 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setPageInfo: (current, total) => set({ currentPage: current, pageCount: total }),
   setDirty: (dirty) => set({ isDirty: dirty }),
 
+  // NOTE: OO Document Server has no REST endpoint to create a blank document.
+  // "New Document" currently reuses sample.docx as a starting template.
+  // A proper blank-doc workflow requires a server-side endpoint that copies a
+  // blank DOCX template and returns a unique document URL and key. Until that
+  // exists, the UI should make this limitation visible to avoid data loss
+  // (e.g. warn the user that "New" opens a shared template, not a blank file).
   newDocument: () =>
     set({
       currentDoc: null,

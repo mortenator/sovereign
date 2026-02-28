@@ -2,6 +2,12 @@ const OO_SERVER_URL = import.meta.env.VITE_OO_SERVER_URL ?? 'http://localhost:80
 const OO_API_SCRIPT = `${OO_SERVER_URL}/web-apps/apps/api/documents/api.js`
 const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
 
+// SECURITY: In production the JWT token MUST be signed server-side with the OO JWT secret
+// and injected into this page — never bundle the secret in client code.
+// For development against OO servers with JWT validation disabled, you can set
+// VITE_OO_TOKEN to a pre-signed token. Leave unset in prod (use server-side injection).
+const OO_JWT_TOKEN = import.meta.env.VITE_OO_TOKEN as string | undefined
+
 export function getOOApiScriptUrl(): string {
   return OO_API_SCRIPT
 }
@@ -36,6 +42,10 @@ export function buildOOConfig({
   userName?: string
 }): OOConfig {
   return {
+    // JWT token signed server-side. Required when OO Document Server has JWT enabled
+    // (the default in production Docker images). Without it the server rejects the
+    // config and the editor silently fails to load.
+    ...(OO_JWT_TOKEN ? { token: OO_JWT_TOKEN } : {}),
     document: {
       fileType: 'docx',
       key: documentKey,
@@ -102,6 +112,9 @@ export function loadOOScript(): Promise<void> {
       existingScript.addEventListener('error', () =>
         reject(new Error('Failed to load OnlyOffice API script'))
       )
+      // Race guard: if the script's load event already fired between our checks
+      // and listener attachment, DocsAPI will be set — resolve immediately.
+      if (window.DocsAPI) resolve()
       return
     }
 
@@ -116,12 +129,36 @@ export function loadOOScript(): Promise<void> {
   })
 }
 
+// ── Connector cache ──────────────────────────────────────────────────────────
+// createConnector() establishes an internal event subscription in the OO SDK.
+// Calling it on every execOOMethod invocation leaks handles. We cache one
+// connector per editor lifetime and replace it when the editor is recreated.
+
+let _cachedConnector: OOConnector | null = null
+
+/** Call once inside the editor's onDocumentReady event to cache the connector. */
+export function initOOConnector(): void {
+  _cachedConnector = window.editor?.createConnector?.() ?? null
+}
+
+/** Call when the editor is destroyed to release the cached connector. */
+export function destroyOOConnector(): void {
+  _cachedConnector = null
+}
+
 /**
  * Execute a method on the active OnlyOffice editor via the connector API.
- * The connector bridges the host page and the editor iframe using the
- * documented OO JS SDK approach (DocsAPI connector.executeMethod).
+ * Uses the cached connector (set up in onDocumentReady). Falls back to a
+ * fresh createConnector() call when called before the cache is populated
+ * (e.g., during early init).
  *
- * Usage: execOOMethod('ChangeFont', null, { Name: 'Arial', Size: 14 })
+ * Method names follow the OO connector API convention (PascalCase):
+ *   SetBold, SetItalic, SetUnderline, SetStrikeout,
+ *   SetParagraphAlign (data: 'left'|'center'|'right'|'justify'),
+ *   SetStyle (data: { Name: 'Heading 1' }),
+ *   SetFontFamily (data: { Name: 'Arial' }),
+ *   SetFontSize (data: { Size: 14 }),
+ *   RemoveFormat, SetBullet, SetNum, Undo, Redo
  */
 export function execOOMethod(
   methodName: string,
@@ -129,7 +166,7 @@ export function execOOMethod(
   data?: unknown
 ): void {
   try {
-    const connector = window.editor?.createConnector?.()
+    const connector = _cachedConnector ?? window.editor?.createConnector?.()
     connector?.executeMethod(methodName, callback, data)
   } catch {
     // Editor not ready or method unsupported — safe to ignore

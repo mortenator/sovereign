@@ -23,10 +23,10 @@ export function useKeyboardShortcuts() {
           window.editor?.print()
           break
         case 'undo':
-          execOOMethod('undo')
+          execOOMethod('Undo')
           break
         case 'redo':
-          execOOMethod('redo')
+          execOOMethod('Redo')
           break
         case 'find':
           setFindOpen(true)
@@ -35,34 +35,34 @@ export function useKeyboardShortcuts() {
           setFindOpen(true)
           break
         case 'bold':
-          execOOMethod('bold')
+          execOOMethod('SetBold')
           break
         case 'italic':
-          execOOMethod('italic')
+          execOOMethod('SetItalic')
           break
         case 'underline':
-          execOOMethod('underline')
+          execOOMethod('SetUnderline')
           break
         case 'alignLeft':
-          execOOMethod('justifyLeft')
+          execOOMethod('SetParagraphAlign', null, 'left')
           break
         case 'alignCenter':
-          execOOMethod('justifyCenter')
+          execOOMethod('SetParagraphAlign', null, 'center')
           break
         case 'alignRight':
-          execOOMethod('justifyRight')
+          execOOMethod('SetParagraphAlign', null, 'right')
           break
         case 'alignJustify':
-          execOOMethod('justifyFull')
+          execOOMethod('SetParagraphAlign', null, 'justify')
           break
         case 'heading1':
-          execOOMethod('setStyle', null, 'h1')
+          execOOMethod('SetStyle', null, { Name: 'Heading 1' })
           break
         case 'heading2':
-          execOOMethod('setStyle', null, 'h2')
+          execOOMethod('SetStyle', null, { Name: 'Heading 2' })
           break
         case 'heading3':
-          execOOMethod('setStyle', null, 'h3')
+          execOOMethod('SetStyle', null, { Name: 'Heading 3' })
           break
         case 'fontSizeUp':
           // Handled by font size controls

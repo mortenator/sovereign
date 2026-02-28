@@ -52,14 +52,15 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 72]
 
+// Style names must match OO Document Server style names exactly.
 const PARAGRAPH_STYLES = [
-  { label: 'Normal', value: 'p' },
-  { label: 'Heading 1', value: 'h1' },
-  { label: 'Heading 2', value: 'h2' },
-  { label: 'Heading 3', value: 'h3' },
-  { label: 'Heading 4', value: 'h4' },
-  { label: 'Subtitle', value: 'subtitle' },
-  { label: 'Quote', value: 'blockquote' },
+  { label: 'Normal', value: 'Normal' },
+  { label: 'Heading 1', value: 'Heading 1' },
+  { label: 'Heading 2', value: 'Heading 2' },
+  { label: 'Heading 3', value: 'Heading 3' },
+  { label: 'Heading 4', value: 'Heading 4' },
+  { label: 'Subtitle', value: 'Subtitle' },
+  { label: 'Quote', value: 'Quote' },
 ]
 
 function RibbonGroup({
@@ -125,27 +126,30 @@ export function HomeTab() {
   const { isBold, isItalic, isUnderline, isStrikethrough, fontFamily, fontSize, alignment, setFindOpen } =
     useEditorStore()
 
-  const fmt = (cmd: string, value?: string) => execOOMethod(cmd, null, value)
+  // OO connector API uses PascalCase method names (not document.execCommand names).
+  const fmt = (cmd: string, value?: unknown) => execOOMethod(cmd, null, value)
 
-  const applyStyle = (style: string) => {
-    execOOMethod('setStyle', null, style)
+  const applyStyle = (styleName: string) => {
+    execOOMethod('SetStyle', null, { Name: styleName })
   }
 
   return (
     <div className="flex items-stretch gap-px px-2 py-1 flex-wrap">
       {/* Clipboard group */}
+      {/* Paste/Cut/Copy are handled natively by the OO editor iframe via keyboard shortcuts;
+          the connector API does not expose clipboard methods for browser security reasons. */}
       <RibbonGroup label="Clipboard">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ribbon" size="sm" onClick={() => fmt('paste')} aria-label="Paste">
+            <Button variant="ribbon" size="sm" onClick={() => fmt('Paste')} aria-label="Paste">
               <Clipboard className="h-3.5 w-3.5 mr-1" />
               <span className="text-xs">Paste</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>Paste (Ctrl+V)</TooltipContent>
         </Tooltip>
-        <RibbonBtn label="Cut" icon={Scissors} onClick={() => fmt('cut')} shortcut="Ctrl+X" />
-        <RibbonBtn label="Copy" icon={Copy} onClick={() => fmt('copy')} shortcut="Ctrl+C" />
+        <RibbonBtn label="Cut" icon={Scissors} onClick={() => fmt('Cut')} shortcut="Ctrl+X" />
+        <RibbonBtn label="Copy" icon={Copy} onClick={() => fmt('Copy')} shortcut="Ctrl+C" />
         <RibbonBtn label="Format Painter" icon={Paintbrush} onClick={() => {}} />
       </RibbonGroup>
 
@@ -157,7 +161,7 @@ export function HomeTab() {
           <Select
             value={fontFamily}
             onValueChange={(val) => {
-              execOOMethod('fontName', null, val)
+              execOOMethod('SetFontFamily', null, { Name: val })
             }}
           >
             <SelectTrigger className="w-32 h-6 text-xs" aria-label="Font family">
@@ -175,7 +179,7 @@ export function HomeTab() {
           <Select
             value={String(fontSize)}
             onValueChange={(val) => {
-              execOOMethod('fontSize', null, val)
+              execOOMethod('SetFontSize', null, { Size: parseInt(val, 10) })
             }}
           >
             <SelectTrigger className="w-14 h-6 text-xs" aria-label="Font size">
@@ -195,34 +199,34 @@ export function HomeTab() {
           <RibbonBtn
             label="Bold"
             icon={Bold}
-            onClick={() => fmt('bold')}
+            onClick={() => fmt('SetBold')}
             active={isBold}
             shortcut="Ctrl+B"
           />
           <RibbonBtn
             label="Italic"
             icon={Italic}
-            onClick={() => fmt('italic')}
+            onClick={() => fmt('SetItalic')}
             active={isItalic}
             shortcut="Ctrl+I"
           />
           <RibbonBtn
             label="Underline"
             icon={Underline}
-            onClick={() => fmt('underline')}
+            onClick={() => fmt('SetUnderline')}
             active={isUnderline}
             shortcut="Ctrl+U"
           />
           <RibbonBtn
             label="Strikethrough"
             icon={Strikethrough}
-            onClick={() => fmt('strikeThrough')}
+            onClick={() => fmt('SetStrikeout')}
             active={isStrikethrough}
           />
           <RibbonBtn
             label="Clear Formatting"
             icon={Type}
-            onClick={() => fmt('removeFormat')}
+            onClick={() => fmt('RemoveFormat')}
           />
         </div>
       </RibbonGroup>
@@ -235,28 +239,28 @@ export function HomeTab() {
           <RibbonBtn
             label="Align Left"
             icon={AlignLeft}
-            onClick={() => fmt('justifyLeft')}
+            onClick={() => execOOMethod('SetParagraphAlign', null, 'left')}
             active={alignment === 'left'}
             shortcut="Ctrl+L"
           />
           <RibbonBtn
             label="Center"
             icon={AlignCenter}
-            onClick={() => fmt('justifyCenter')}
+            onClick={() => execOOMethod('SetParagraphAlign', null, 'center')}
             active={alignment === 'center'}
             shortcut="Ctrl+E"
           />
           <RibbonBtn
             label="Align Right"
             icon={AlignRight}
-            onClick={() => fmt('justifyRight')}
+            onClick={() => execOOMethod('SetParagraphAlign', null, 'right')}
             active={alignment === 'right'}
             shortcut="Ctrl+R"
           />
           <RibbonBtn
             label="Justify"
             icon={AlignJustify}
-            onClick={() => fmt('justifyFull')}
+            onClick={() => execOOMethod('SetParagraphAlign', null, 'justify')}
             active={alignment === 'justify'}
             shortcut="Ctrl+J"
           />
@@ -265,22 +269,22 @@ export function HomeTab() {
           <RibbonBtn
             label="Bullet List"
             icon={List}
-            onClick={() => fmt('insertUnorderedList')}
+            onClick={() => fmt('SetBullet')}
           />
           <RibbonBtn
             label="Numbered List"
             icon={ListOrdered}
-            onClick={() => fmt('insertOrderedList')}
+            onClick={() => fmt('SetNum')}
           />
           <RibbonBtn
             label="Decrease Indent"
             icon={OutdentIcon}
-            onClick={() => fmt('outdent')}
+            onClick={() => fmt('DecreaseIndent')}
           />
           <RibbonBtn
             label="Increase Indent"
             icon={IndentIcon}
-            onClick={() => fmt('indent')}
+            onClick={() => fmt('IncreaseIndent')}
           />
         </div>
       </RibbonGroup>
@@ -296,9 +300,9 @@ export function HomeTab() {
               onClick={() => applyStyle(style.value)}
               className={cn(
                 'px-2 py-0.5 text-xs rounded border border-transparent hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300',
-                style.value === 'h1' && 'font-bold text-sm',
-                style.value === 'h2' && 'font-semibold',
-                style.value === 'h3' && 'font-medium',
+                style.value === 'Heading 1' && 'font-bold text-sm',
+                style.value === 'Heading 2' && 'font-semibold',
+                style.value === 'Heading 3' && 'font-medium',
               )}
               aria-label={`Apply ${style.label} style`}
             >

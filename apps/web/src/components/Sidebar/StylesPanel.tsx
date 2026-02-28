@@ -10,47 +10,48 @@ interface StyleDef {
   className: string
 }
 
+// tag values are OO Document Server style names passed as SetStyle { Name } parameter
 const STYLES: StyleDef[] = [
   {
     name: 'Normal',
     preview: 'Normal text',
-    tag: 'p',
+    tag: 'Normal',
     className: 'text-sm text-gray-800 dark:text-gray-200',
   },
   {
     name: 'Heading 1',
     preview: 'Heading 1',
-    tag: 'h1',
+    tag: 'Heading 1',
     className: 'text-xl font-bold text-gray-900 dark:text-gray-100',
   },
   {
     name: 'Heading 2',
     preview: 'Heading 2',
-    tag: 'h2',
+    tag: 'Heading 2',
     className: 'text-lg font-semibold text-gray-900 dark:text-gray-100',
   },
   {
     name: 'Heading 3',
     preview: 'Heading 3',
-    tag: 'h3',
+    tag: 'Heading 3',
     className: 'text-base font-medium text-gray-900 dark:text-gray-100',
   },
   {
     name: 'Subtitle',
     preview: 'Subtitle',
-    tag: 'h4',
+    tag: 'Subtitle',
     className: 'text-sm font-medium text-gray-600 dark:text-gray-400',
   },
   {
     name: 'Quote',
     preview: '"Block quote text"',
-    tag: 'blockquote',
+    tag: 'Quote',
     className: 'text-sm italic text-gray-600 dark:text-gray-400 border-l-2 border-gray-300 pl-2',
   },
   {
     name: 'Code',
     preview: 'code block',
-    tag: 'pre',
+    tag: 'Code',
     className: 'text-xs font-mono text-green-700 dark:text-green-400 bg-gray-100 dark:bg-gray-800 px-1 rounded',
   },
 ]
@@ -61,7 +62,8 @@ export function StylesPanel() {
   const applyStyle = (tag: string) => {
     // Use the OO SDK connector — document.execCommand targets the parent document,
     // not the editor iframe, so it has no effect on the actual document being edited.
-    execOOMethod('setStyle', null, tag)
+    // tag holds an OO style name (e.g. 'Heading 1'); SetStyle expects { Name } object.
+    execOOMethod('SetStyle', null, { Name: tag })
   }
 
   return (

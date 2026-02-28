@@ -22,14 +22,14 @@ export function buildCommands(callbacks: {
   setZoom: (zoom: number) => void
 }): CommandItem[] {
   return [
-    // Formatting
+    // Formatting — OO connector PascalCase method names (not document.execCommand names)
     {
       id: 'format-bold',
       label: 'Bold',
       description: 'Toggle bold formatting',
       shortcut: '⌘B',
       category: 'Format',
-      action: () => execOOMethod('bold'),
+      action: () => execOOMethod('SetBold'),
       keywords: ['bold', 'strong', 'format'],
     },
     {
@@ -38,7 +38,7 @@ export function buildCommands(callbacks: {
       description: 'Toggle italic formatting',
       shortcut: '⌘I',
       category: 'Format',
-      action: () => execOOMethod('italic'),
+      action: () => execOOMethod('SetItalic'),
       keywords: ['italic', 'em', 'format'],
     },
     {
@@ -47,7 +47,7 @@ export function buildCommands(callbacks: {
       description: 'Toggle underline',
       shortcut: '⌘U',
       category: 'Format',
-      action: () => execOOMethod('underline'),
+      action: () => execOOMethod('SetUnderline'),
       keywords: ['underline', 'format'],
     },
     {
@@ -55,7 +55,7 @@ export function buildCommands(callbacks: {
       label: 'Strikethrough',
       description: 'Toggle strikethrough',
       category: 'Format',
-      action: () => execOOMethod('strikeThrough'),
+      action: () => execOOMethod('SetStrikeout'),
       keywords: ['strikethrough', 'strike', 'format'],
     },
     {
@@ -63,17 +63,17 @@ export function buildCommands(callbacks: {
       label: 'Clear Formatting',
       description: 'Remove all formatting',
       category: 'Format',
-      action: () => execOOMethod('removeFormat'),
+      action: () => execOOMethod('RemoveFormat'),
       keywords: ['clear', 'reset', 'format'],
     },
 
-    // Alignment
+    // Alignment — SetParagraphAlign with direction string
     {
       id: 'align-left',
       label: 'Align Left',
       shortcut: '⌘L',
       category: 'Format',
-      action: () => execOOMethod('justifyLeft'),
+      action: () => execOOMethod('SetParagraphAlign', null, 'left'),
       keywords: ['align', 'left'],
     },
     {
@@ -81,7 +81,7 @@ export function buildCommands(callbacks: {
       label: 'Center',
       shortcut: '⌘E',
       category: 'Format',
-      action: () => execOOMethod('justifyCenter'),
+      action: () => execOOMethod('SetParagraphAlign', null, 'center'),
       keywords: ['align', 'center'],
     },
     {
@@ -89,7 +89,7 @@ export function buildCommands(callbacks: {
       label: 'Align Right',
       shortcut: '⌘R',
       category: 'Format',
-      action: () => execOOMethod('justifyRight'),
+      action: () => execOOMethod('SetParagraphAlign', null, 'right'),
       keywords: ['align', 'right'],
     },
     {
@@ -97,18 +97,18 @@ export function buildCommands(callbacks: {
       label: 'Justify',
       shortcut: '⌘J',
       category: 'Format',
-      action: () => execOOMethod('justifyFull'),
+      action: () => execOOMethod('SetParagraphAlign', null, 'justify'),
       keywords: ['align', 'justify', 'full'],
     },
 
-    // Styles
+    // Styles — SetStyle with OO style name object
     {
       id: 'style-normal',
       label: 'Normal Text',
       description: 'Apply Normal paragraph style',
       shortcut: '⌥0',
       category: 'Styles',
-      action: () => execOOMethod('setStyle', null, 'p'),
+      action: () => execOOMethod('SetStyle', null, { Name: 'Normal' }),
       keywords: ['normal', 'paragraph', 'style'],
     },
     {
@@ -117,7 +117,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 1 style',
       shortcut: '⌥1',
       category: 'Styles',
-      action: () => execOOMethod('setStyle', null, 'h1'),
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 1' }),
       keywords: ['heading', 'h1', 'title'],
     },
     {
@@ -126,7 +126,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 2 style',
       shortcut: '⌥2',
       category: 'Styles',
-      action: () => execOOMethod('setStyle', null, 'h2'),
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 2' }),
       keywords: ['heading', 'h2', 'subtitle'],
     },
     {
@@ -135,7 +135,7 @@ export function buildCommands(callbacks: {
       description: 'Apply Heading 3 style',
       shortcut: '⌥3',
       category: 'Styles',
-      action: () => execOOMethod('setStyle', null, 'h3'),
+      action: () => execOOMethod('SetStyle', null, { Name: 'Heading 3' }),
       keywords: ['heading', 'h3'],
     },
 
@@ -145,7 +145,7 @@ export function buildCommands(callbacks: {
       label: 'Bullet List',
       description: 'Insert unordered list',
       category: 'Insert',
-      action: () => execOOMethod('insertUnorderedList'),
+      action: () => execOOMethod('SetBullet'),
       keywords: ['bullet', 'list', 'unordered'],
     },
     {
@@ -153,7 +153,7 @@ export function buildCommands(callbacks: {
       label: 'Numbered List',
       description: 'Insert ordered list',
       category: 'Insert',
-      action: () => execOOMethod('insertOrderedList'),
+      action: () => execOOMethod('SetNum'),
       keywords: ['number', 'list', 'ordered'],
     },
 

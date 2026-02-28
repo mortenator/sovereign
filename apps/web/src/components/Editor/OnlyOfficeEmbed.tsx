@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadOOScript, buildOOConfig } from '@/lib/onlyoffice'
+import { loadOOScript, buildOOConfig, initOOConnector, destroyOOConnector } from '@/lib/onlyoffice'
 import { useEditorStore } from '@/store/editorStore'
 
 interface OnlyOfficeEmbedProps {
@@ -25,7 +25,24 @@ export function OnlyOfficeEmbed({
 }: OnlyOfficeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorInstanceRef = useRef<OOEditor | null>(null)
+  const mountedRef = useRef(true)
   const { isDarkMode, setEditorLoading, setEditorError } = useEditorStore()
+
+  // Track isDarkMode in a ref so initEditor can read the current value without
+  // being in its dependency array. This prevents a destroy+reinit every time
+  // the user toggles dark mode — OO theme changes take effect on next open.
+  const isDarkModeRef = useRef(isDarkMode)
+  useEffect(() => {
+    isDarkModeRef.current = isDarkMode
+  }, [isDarkMode])
+
+  // Track mount state so async callbacks don't update state after unmount.
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const destroyEditor = useCallback(() => {
     if (editorInstanceRef.current) {
@@ -36,6 +53,7 @@ export function OnlyOfficeEmbed({
       }
       editorInstanceRef.current = null
       window.editor = undefined
+      destroyOOConnector()
     }
   }, [])
 
@@ -56,11 +74,14 @@ export function OnlyOfficeEmbed({
     try {
       await loadOOScript()
     } catch (err) {
+      if (!mountedRef.current) return
       const msg = err instanceof Error ? err.message : 'Failed to load OnlyOffice'
       setEditorError(msg)
       onError?.(0, msg)
       return
     }
+
+    if (!mountedRef.current) return
 
     if (!window.DocsAPI) {
       const msg = 'OnlyOffice Document Server not available. Is it running at localhost:8080?'
@@ -74,13 +95,16 @@ export function OnlyOfficeEmbed({
       documentUrl,
       documentTitle,
       callbackUrl,
-      isDarkMode,
+      isDarkMode: isDarkModeRef.current,
     })
 
     const fullConfig: OOConfig = {
       ...baseConfig,
       events: {
         onDocumentReady: () => {
+          // Cache the connector here; creating it on every execOOMethod call
+          // leaks SDK event subscriptions.
+          initOOConnector()
           setEditorLoading(false)
           onReady?.()
         },
@@ -100,6 +124,7 @@ export function OnlyOfficeEmbed({
       window.editor = editor
       onEditorCreated?.(editor)
     } catch (err) {
+      if (!mountedRef.current) return
       const msg = err instanceof Error ? err.message : 'Failed to initialize editor'
       setEditorError(msg)
       onError?.(0, msg)
@@ -109,7 +134,8 @@ export function OnlyOfficeEmbed({
     documentUrl,
     documentTitle,
     callbackUrl,
-    isDarkMode,
+    // isDarkMode intentionally excluded: changes handled via isDarkModeRef to
+    // avoid destroying and recreating the editor on every theme toggle.
     onReady,
     onStateChange,
     onError,
