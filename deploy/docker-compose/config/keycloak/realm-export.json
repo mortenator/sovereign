@@ -1,0 +1,281 @@
+{
+  "id": "sovereign",
+  "realm": "sovereign",
+  "displayName": "Sovereign Document Suite",
+  "displayNameHtml": "<strong>Sovereign</strong> Document Suite",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "de", "fr", "nl", "es", "it", "pl"],
+  "defaultLocale": "en",
+
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 86400,
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 2592000,
+
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
+
+  "roles": {
+    "realm": [
+      {
+        "id": "027f6c58-2a75-4967-bba3-26b2e1bc683c",
+        "name": "admin",
+        "description": "Full administrative access to all documents and settings",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "sovereign"
+      },
+      {
+        "id": "b20139a5-6d63-4384-8a90-20ba4b38c4f8",
+        "name": "editor",
+        "description": "Can create, edit, and delete documents",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "sovereign"
+      },
+      {
+        "id": "661fa753-7cdf-491c-ac9f-929b4d0c9057",
+        "name": "viewer",
+        "description": "Read-only access to documents",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "sovereign"
+      },
+      {
+        "id": "a2f43b7c-1e8d-4f6a-9c0b-3d5e7f8a2b1c",
+        "name": "default-roles-sovereign",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "composites": {
+          "realm": ["viewer"]
+        },
+        "clientRole": false,
+        "containerId": "sovereign"
+      }
+    ],
+    "client": {
+      "sovereign-web": [
+        {
+          "id": "d698af48-67ef-4911-8c96-8595966e9661",
+          "name": "admin",
+          "description": "Admin role scoped to sovereign-web client",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "sovereign-web"
+        },
+        {
+          "id": "9dca4757-7579-40ae-8049-eb9669ae78d1",
+          "name": "editor",
+          "description": "Editor role scoped to sovereign-web client",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "sovereign-web"
+        },
+        {
+          "id": "0afc6956-047d-4b74-b56e-96772d0d8e55",
+          "name": "viewer",
+          "description": "Viewer role scoped to sovereign-web client",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "sovereign-web"
+        }
+      ]
+    }
+  },
+
+  "defaultRole": {
+    "id": "a2f43b7c-1e8d-4f6a-9c0b-3d5e7f8a2b1c",
+    "name": "default-roles-sovereign",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "composites": {
+      "realm": ["viewer"]
+    },
+    "clientRole": false,
+    "containerId": "sovereign"
+  },
+
+  "clients": [
+    {
+      "id": "87563def-6f8b-4208-8a3e-9a85f667e015",
+      "clientId": "sovereign-web",
+      "name": "Sovereign Web Application",
+      "description": "Main document suite frontend",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "redirectUris": [
+        "https://${DOMAIN}/*"
+      ],
+      "webOrigins": [
+        "https://${DOMAIN}"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "saml.assertion.signature": "false",
+        "saml.force.post.binding": "false",
+        "saml.multivalued.roles": "false",
+        "saml.encrypt": "false",
+        "backchannel.logout.session.required": "true",
+        "post.logout.redirect.uris": "https://${DOMAIN}/*",
+        "display.on.consent.screen": "false",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "backchannel.logout.revoke.offline.tokens": "false"
+      },
+      "protocolMappers": [
+        {
+          "id": "3d8d387f-9a9e-4fe7-9d20-25d4d4efdf44",
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "id": "2e1f514d-0778-48a4-8607-1a92accb5ccd",
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "id": "e22862bc-cc67-4f8b-a0e5-369c22f042d7",
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "id": "e136e0f2-a66f-4bc5-856d-e805bf818a26",
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "firstName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "given_name",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "id": "8224188e-022b-4507-9198-ebd868b5cd72",
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "lastName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "family_name",
+            "jsonType.label": "String"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email",
+        "openid"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    }
+  ],
+
+  "scopeMappings": [],
+
+  "clientScopeMappings": {},
+
+  "smtpServer": {},
+
+  "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging"],
+  "enabledEventTypes": [
+    "LOGIN",
+    "LOGIN_ERROR",
+    "LOGOUT",
+    "REGISTER",
+    "REGISTER_ERROR",
+    "UPDATE_PASSWORD",
+    "UPDATE_PASSWORD_ERROR",
+    "RESET_PASSWORD",
+    "RESET_PASSWORD_ERROR",
+    "CLIENT_LOGIN",
+    "CLIENT_LOGIN_ERROR",
+    "CODE_TO_TOKEN",
+    "CODE_TO_TOKEN_ERROR"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+
+  "attributes": {
+    "frontendUrl": "https://auth.${DOMAIN}",
+    "acr.loa.map": "{}",
+    "cibaBackchannelTokenDeliveryMode": "poll",
+    "cibaAuthRequestedUserHint": "login_hint",
+    "oauth2DevicePollingInterval": "5",
+    "clientOfflineSessionMaxLifespan": "0",
+    "clientOfflineSessionIdleTimeout": "0",
+    "clientSessionIdleTimeout": "0",
+    "clientSessionMaxLifespan": "0"
+  }
+}

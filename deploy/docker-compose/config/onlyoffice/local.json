@@ -1,0 +1,98 @@
+{
+  "services": {
+    "CoAuthoring": {
+      "sql": {
+        "type": "postgres",
+        "dbHost": "postgres",
+        "dbPort": "5432",
+        "dbName": "onlyoffice",
+        "dbUser": "onlyoffice",
+        "dbPass": "${ONLYOFFICE_DB_PASSWORD}"
+      },
+      "redis": {
+        "host": "redis",
+        "port": "6379",
+        "password": "${REDIS_PASSWORD}"
+      },
+      "server": {
+        "port": 8080,
+        "siteUrl": "https://docs.${DOMAIN}"
+      },
+      "secret": {
+        "inbox": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        },
+        "outbox": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        },
+        "session": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        }
+      },
+      "token": {
+        "enable": {
+          "request": {
+            "inbox": true,
+            "outbox": true
+          },
+          "browser": true
+        },
+        "inbox": {
+          "header": "Authorization",
+          "inBody": true
+        },
+        "outbox": {
+          "header": "Authorization",
+          "inBody": true
+        }
+      },
+      "autoAssembly": {
+        "enable": true,
+        "interval": "5m"
+      }
+    },
+    "stats": {
+      "enabled": false
+    },
+    "metrics": {
+      "enabled": false
+    }
+  },
+  "FileConverter": {
+    "converter": {
+      "maxDownloadBytes": 104857600,
+      "downloadTimeout": 120000
+    }
+  },
+  "storage": {
+    "fs": {
+      "folderPath": "/var/www/onlyoffice/Data"
+    }
+  },
+  "log": {
+    "filePath": "/var/log/onlyoffice",
+    "appenders": {
+      "rolling": {
+        "filename": "/var/log/onlyoffice/out.log",
+        "maxLogSize": 524288,
+        "backups": 7
+      }
+    }
+  },
+  "wopi": {
+    "enable": false
+  },
+  "fonts": {
+    "inputPath": "/usr/share/fonts",
+    "outputPath": "/var/www/onlyoffice/documentserver/sdkjs/common",
+    "enabled": true
+  },
+  "tenants": {
+    "baseDir": "/var/www/onlyoffice/Data/tenants"
+  },
+  "regions": {
+    "eu": {
+      "dataCenter": "eu-central-1"
+    }
+  }
+}

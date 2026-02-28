@@ -1,0 +1,103 @@
+# Traefik v3 — Static Configuration
+# Sovereign Deploy — EU Sovereign Document Suite
+# https://doc.traefik.io/traefik/
+
+# ─────────────────────────────────────────────
+# API & Dashboard
+# Dashboard disabled in production.
+# Enable temporarily for debugging with: --api.dashboard=true
+# ─────────────────────────────────────────────
+api:
+  dashboard: false
+  insecure: false
+
+# ─────────────────────────────────────────────
+# Ping endpoint — used by Docker health check
+# Uses a dedicated internal entrypoint to avoid the HTTP→HTTPS redirect loop.
+# ─────────────────────────────────────────────
+ping:
+  entryPoint: traefik-internal
+
+# ─────────────────────────────────────────────
+# Entry Points
+# ─────────────────────────────────────────────
+entryPoints:
+  web:
+    address: ":80"
+    # Permanent HTTP → HTTPS redirect
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+
+  # Internal-only entrypoint for ping healthcheck.
+  # Avoids the HTTP→HTTPS redirect loop that would block Docker healthchecks
+  # before a TLS certificate has been issued.
+  traefik-internal:
+    address: ":8082"
+
+# ─────────────────────────────────────────────
+# Providers
+# ─────────────────────────────────────────────
+providers:
+  # Docker provider: read routing labels from containers
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: sovereign-net
+    watch: true
+
+  # File provider: load dynamic config from /etc/traefik/dynamic/
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# ─────────────────────────────────────────────
+# Certificate Resolvers (Let's Encrypt / ACME)
+# ─────────────────────────────────────────────
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /letsencrypt/acme.json
+      # Use TLS challenge (port 443). Alternative: httpChallenge on port 80.
+      tlsChallenge: {}
+      # For wildcard certs, switch to dnsChallenge with your DNS provider.
+
+# ─────────────────────────────────────────────
+# Logging
+# ─────────────────────────────────────────────
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  fields:
+    headers:
+      defaultMode: drop
+      names:
+        # Log these headers for audit trails
+        X-Forwarded-For: keep
+        X-Real-IP: keep
+
+# ─────────────────────────────────────────────
+# Metrics (optional — enable for Prometheus)
+# ─────────────────────────────────────────────
+# metrics:
+#   prometheus:
+#     entryPoint: web
+#     addEntryPointsLabels: true
+#     addServicesLabels: true
+
+# ─────────────────────────────────────────────
+# Global settings
+# ─────────────────────────────────────────────
+global:
+  checkNewVersion: false    # Disable version check (privacy / EU sovereignty)
+  sendAnonymousUsage: false # Never send usage data
