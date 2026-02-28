@@ -1,0 +1,481 @@
+/**
+ * run-tests.ts
+ * Playwright-based test runner for DOCX compatibility testing.
+ *
+ * For each file in corpus/index.json:
+ *  1. Serves the DOCX file via a local HTTP server
+ *  2. Opens OnlyOffice Document Server at http://localhost:8080
+ *  3. Waits for document to render (onDocumentReady)
+ *  4. Takes a full-page screenshot
+ *  5. Compares to reference PNG using pixelmatch
+ *  6. Records pass/fail + diff percentage
+ *
+ * Results written to results/results.json
+ */
+
+import { chromium, Browser, Page } from "playwright";
+import * as http from "http";
+import * as fs from "fs";
+import * as path from "path";
+import { PNG } from "pngjs";
+import pixelmatch from "pixelmatch";
+
+// ─── Configuration ────────────────────────────────────────────────────────────
+
+const CORPUS_DIR = path.join(__dirname, "corpus");
+const REFERENCE_DIR = path.join(__dirname, "reference");
+const RESULTS_DIR = path.join(__dirname, "results");
+const ONLYOFFICE_URL = process.env.ONLYOFFICE_URL ?? "http://localhost:8080";
+const FILE_SERVER_PORT = parseInt(process.env.FILE_SERVER_PORT ?? "9090", 10);
+// FILE_SERVER_HOST must be reachable from the OnlyOffice Docker container.
+// In CI, OO fetches the document URL server-side from inside its container, so
+// 127.0.0.1 resolves to the container's own loopback — not the runner's.
+// Set FILE_SERVER_HOST to the Docker bridge gateway (e.g. 172.17.0.1) in CI.
+const FILE_SERVER_HOST = process.env.FILE_SERVER_HOST ?? "127.0.0.1";
+const PIXEL_DIFF_THRESHOLD = parseFloat(process.env.PIXEL_DIFF_THRESHOLD ?? "0.05"); // 5% tolerance
+// A single timeout is used for all documents regardless of complexity. 30 s is adequate
+// for most files but may be tight for 19-long-document.docx (20+ pages). Raise the
+// DOCUMENT_READY_TIMEOUT env var when running locally if flakiness is observed on large
+// documents. Per-document timeouts would require manifest metadata; left for a future pass.
+const DOCUMENT_READY_TIMEOUT = parseInt(process.env.DOCUMENT_READY_TIMEOUT ?? "30000", 10);
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface CorpusEntry {
+  file: string;
+  priority: "critical" | "high" | "medium";
+  description: string;
+  features: string[];
+}
+
+interface CorpusManifest {
+  generated: string;
+  count: number;
+  files: CorpusEntry[];
+}
+
+interface TestResult {
+  file: string;
+  priority: "critical" | "high" | "medium";
+  description: string;
+  status: "pass" | "fail" | "skip" | "error";
+  diffPercent?: number;
+  diffImagePath?: string;
+  screenshotPath?: string;
+  referenceExists: boolean;
+  errorMessage?: string;
+  durationMs: number;
+}
+
+// ─── File Server ─────────────────────────────────────────────────────────────
+
+function startFileServer(): Promise<http.Server> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      if (!req.url) {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+
+      const filePath = path.join(CORPUS_DIR, decodeURIComponent(req.url.slice(1)));
+
+      if (!filePath.startsWith(CORPUS_DIR + path.sep)) {
+        res.writeHead(403);
+        res.end("Forbidden");
+        return;
+      }
+
+      if (!fs.existsSync(filePath)) {
+        res.writeHead(404);
+        res.end("File not found");
+        return;
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType =
+        ext === ".docx"
+          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          : ext === ".doc"
+          ? "application/msword"
+          : "application/octet-stream";
+
+      res.writeHead(200, {
+        "Content-Type": contentType,
+        "Access-Control-Allow-Origin": "*",
+        "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+      });
+
+      fs.createReadStream(filePath).pipe(res);
+    });
+
+    server.on("error", reject);
+    // Bind to 0.0.0.0 so the file server is reachable from Docker containers (OO
+    // fetches the document URL server-side from within its container).
+    server.listen(FILE_SERVER_PORT, "0.0.0.0", () => {
+      console.log(`  File server listening on http://0.0.0.0:${FILE_SERVER_PORT} (accessible as ${FILE_SERVER_HOST})`);
+      resolve(server);
+    });
+  });
+}
+
+// ─── OnlyOffice Integration ───────────────────────────────────────────────────
+
+function buildOnlyOfficeUrl(filename: string): string {
+  // Two-level encoding is intentional and correct here:
+  //   1. encodeURIComponent(filename) encodes the filename for use as a URL path segment
+  //      (e.g. spaces → %20, so the file server path is valid).
+  //   2. The outer encodeURIComponent encodes the entire file URL for embedding as the
+  //      value of the `url=` query parameter (so that `:`, `/`, `%` etc. are safe).
+  // OnlyOffice decodes the `url` parameter once to get the file-server URL, then fetches
+  // it. The file server decodes the path once to get the filename. Each level decodes
+  // exactly one layer — there is no accidental double-decode.
+  const docUrl = encodeURIComponent(
+    `http://${FILE_SERVER_HOST}:${FILE_SERVER_PORT}/${encodeURIComponent(filename)}`
+  );
+  const ext = path.extname(filename).slice(1).toLowerCase(); // e.g. "docx" or "doc"
+
+  // OnlyOffice Document Server API v1.7 URL format
+  // Opens the document in view mode with no toolbar for clean screenshots
+  return (
+    `${ONLYOFFICE_URL}/web-apps/apps/documenteditor/main/index.html` +
+    `?formsDataUrl=` +
+    `&fileType=${ext}` +
+    `&documentType=word` +
+    `&key=${encodeURIComponent(filename + Date.now())}` +
+    `&url=${docUrl}` +
+    `&mode=view` +
+    `&lang=en`
+  );
+}
+
+async function waitForDocumentReady(page: Page, timeoutMs: number): Promise<void> {
+  // Wait for OO to signal document ready — it fires a custom event or updates DOM
+  await page.waitForFunction(
+    () => {
+      // OO Document Server renders content in an iframe with specific class
+      const editors = document.querySelectorAll(".documenteditor");
+      if (editors.length === 0) return false;
+
+      // Also check for canvas elements (OO renders via canvas)
+      const canvases = document.querySelectorAll("canvas");
+      if (canvases.length === 0) return false;
+
+      // Check that the loading indicator is gone
+      const loading = document.querySelector(".asc-loadmask-body");
+      return !loading || (loading as HTMLElement).style.display === "none";
+    },
+    { timeout: timeoutMs }
+  ).catch(() => {
+    // Fallback: just wait a fixed time if the selector approach doesn't work
+    console.log("    [warn] Could not detect document ready via DOM — continuing after settle delay");
+  });
+
+  // Extra settle time for rendering.
+  // 2 s is a best-effort floor, not a guarantee: for large documents (e.g.
+  // 19-long-document.docx, 20+ pages) OO canvas rendering may not be complete.
+  // Increasing this globally adds significant wall-clock time across all tests;
+  // a per-document adaptive wait (polling a render-complete signal) would be ideal
+  // but OO 7.5 exposes no reliable DOM event for that. The DOCUMENT_READY_TIMEOUT
+  // env var can be raised if flakiness is observed on large documents.
+  await page.waitForTimeout(2000);
+}
+
+// ─── Screenshot + Diff ────────────────────────────────────────────────────────
+
+async function takeScreenshot(page: Page, outputPath: string): Promise<void> {
+  await page.screenshot({
+    path: outputPath,
+    fullPage: false,
+    clip: { x: 0, y: 0, width: 1280, height: 900 },
+  });
+}
+
+function compareImages(
+  actualPath: string,
+  referencePath: string,
+  diffPath: string
+): { diffPercent: number; passed: boolean } {
+  const actual = PNG.sync.read(fs.readFileSync(actualPath));
+  const reference = PNG.sync.read(fs.readFileSync(referencePath));
+
+  // Fail if dimensions differ by more than 10% — a large size mismatch means OO rendered
+  // at a different zoom/resolution and cropping to the overlap region would miss missing
+  // content entirely (e.g. a document missing its bottom third still passes at 0% diff).
+  const widthRatio = actual.width / reference.width;
+  const heightRatio = actual.height / reference.height;
+  if (widthRatio < 0.9 || widthRatio > 1.1 || heightRatio < 0.9 || heightRatio > 1.1) {
+    console.log(
+      `    [error] Dimension mismatch: actual ${actual.width}×${actual.height} vs reference ${reference.width}×${reference.height} (>10% difference)`
+    );
+    // Write an empty diff image so the artifact path is still valid
+    const emptyDiff = new PNG({ width: reference.width, height: reference.height });
+    fs.writeFileSync(diffPath, PNG.sync.write(emptyDiff));
+    return { diffPercent: 1, passed: false };
+  }
+
+  // Compare over the intersection of both dimensions
+  const width = Math.min(actual.width, reference.width);
+  const height = Math.min(actual.height, reference.height);
+
+  const actualData = actual.width === width && actual.height === height ? actual.data : cropImage(actual, width, height);
+  const referenceData =
+    reference.width === width && reference.height === height ? reference.data : cropImage(reference, width, height);
+
+  const diff = new PNG({ width, height });
+
+  const numDiffPixels = pixelmatch(referenceData, actualData, diff.data, width, height, {
+    threshold: 0.1, // per-pixel color threshold
+    includeAA: false,
+  });
+
+  fs.writeFileSync(diffPath, PNG.sync.write(diff));
+
+  const totalPixels = width * height;
+  const diffPercent = numDiffPixels / totalPixels;
+
+  return {
+    diffPercent,
+    passed: diffPercent <= PIXEL_DIFF_THRESHOLD,
+  };
+}
+
+function cropImage(png: PNG, width: number, height: number): Buffer {
+  const cropped = new PNG({ width, height });
+  PNG.bitblt(png, cropped, 0, 0, width, height, 0, 0);
+  return cropped.data as unknown as Buffer;
+}
+
+// ─── Test Runner ─────────────────────────────────────────────────────────────
+
+async function runTest(
+  page: Page,
+  entry: CorpusEntry,
+  resultsDir: string
+): Promise<TestResult> {
+  const startTime = Date.now();
+  const screenshotPath = path.join(resultsDir, entry.file.replace(/\.(docx|doc)$/, "-actual.png"));
+  const referencePath = path.join(REFERENCE_DIR, entry.file.replace(/\.(docx|doc)$/, "-reference.png"));
+  const diffPath = path.join(resultsDir, entry.file.replace(/\.(docx|doc)$/, "-diff.png"));
+  const referenceExists = fs.existsSync(referencePath);
+
+  console.log(`  Testing: ${entry.file} [${entry.priority}]`);
+
+  try {
+    const ooUrl = buildOnlyOfficeUrl(entry.file);
+    await page.goto(ooUrl, { waitUntil: "domcontentloaded", timeout: DOCUMENT_READY_TIMEOUT });
+    await waitForDocumentReady(page, DOCUMENT_READY_TIMEOUT);
+    await takeScreenshot(page, screenshotPath);
+
+    if (!referenceExists) {
+      console.log(`    [skip] No reference image — screenshot saved for review`);
+      return {
+        file: entry.file,
+        priority: entry.priority,
+        description: entry.description,
+        status: "skip",
+        screenshotPath,
+        referenceExists: false,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    const { diffPercent, passed } = compareImages(screenshotPath, referencePath, diffPath);
+    const diffPct = Math.round(diffPercent * 10000) / 100; // 2 decimal places
+
+    console.log(
+      `    ${passed ? "PASS" : "FAIL"} — diff: ${diffPct.toFixed(2)}% (threshold: ${(PIXEL_DIFF_THRESHOLD * 100).toFixed(0)}%)`
+    );
+
+    return {
+      file: entry.file,
+      priority: entry.priority,
+      description: entry.description,
+      status: passed ? "pass" : "fail",
+      diffPercent: diffPct,
+      diffImagePath: diffPath,
+      screenshotPath,
+      referenceExists: true,
+      durationMs: Date.now() - startTime,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.log(`    [error] ${message}`);
+    return {
+      file: entry.file,
+      priority: entry.priority,
+      description: entry.description,
+      status: "error",
+      screenshotPath: fs.existsSync(screenshotPath) ? screenshotPath : undefined,
+      referenceExists,
+      errorMessage: message,
+      durationMs: Date.now() - startTime,
+    };
+  }
+}
+
+// ─── Generate Reference Images ────────────────────────────────────────────────
+
+async function generateReferences(
+  page: Page,
+  entries: CorpusEntry[],
+  targetPriorities: string[]
+): Promise<void> {
+  console.log(`\nGenerating reference images for tiers: ${targetPriorities.join(", ")}...`);
+
+  if (!fs.existsSync(REFERENCE_DIR)) {
+    fs.mkdirSync(REFERENCE_DIR, { recursive: true });
+  }
+
+  const targets = entries.filter((e) => targetPriorities.includes(e.priority));
+
+  for (const entry of targets) {
+    const referencePath = path.join(REFERENCE_DIR, entry.file.replace(/\.(docx|doc)$/, "-reference.png"));
+    if (fs.existsSync(referencePath)) {
+      console.log(`  [skip] Reference already exists: ${entry.file}`);
+      continue;
+    }
+
+    console.log(`  Generating reference: ${entry.file}`);
+    try {
+      const ooUrl = buildOnlyOfficeUrl(entry.file);
+      await page.goto(ooUrl, { waitUntil: "domcontentloaded", timeout: DOCUMENT_READY_TIMEOUT });
+      await waitForDocumentReady(page, DOCUMENT_READY_TIMEOUT);
+      await takeScreenshot(page, referencePath);
+      console.log(`    Saved: ${path.basename(referencePath)}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.log(`    [error] Failed to generate reference for ${entry.file}: ${message}`);
+    }
+  }
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const generateRefs = process.argv.includes("--generate-references");
+
+  // Ensure results dir exists
+  if (!fs.existsSync(RESULTS_DIR)) {
+    fs.mkdirSync(RESULTS_DIR, { recursive: true });
+  }
+
+  // Load manifest
+  const manifestPath = path.join(CORPUS_DIR, "index.json");
+  if (!fs.existsSync(manifestPath)) {
+    console.error("ERROR: corpus/index.json not found. Run: npm run generate-corpus first.");
+    process.exit(1);
+  }
+
+  const manifest: CorpusManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  console.log(`Loaded corpus manifest: ${manifest.count} test files\n`);
+
+  // Check OO is reachable
+  const ooHealthy = await checkOnlyOffice();
+  if (!ooHealthy) {
+    console.error(`ERROR: OnlyOffice Document Server not reachable at ${ONLYOFFICE_URL}`);
+    console.error("Start OO with: docker run -d -p 8080:80 onlyoffice/documentserver:latest");
+    process.exit(1);
+  }
+  console.log(`OnlyOffice server: OK (${ONLYOFFICE_URL})\n`);
+
+  // Start file server
+  const fileServer = await startFileServer();
+
+  // Launch browser
+  const browser: Browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+  });
+
+  const page: Page = await browser.newPage();
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  try {
+    if (generateRefs) {
+      // Generate reference images for critical + high priority
+      await generateReferences(page, manifest.files, ["critical", "high"]);
+    } else {
+      // Run all tests
+      console.log("Running compatibility tests...\n");
+      const results: TestResult[] = [];
+
+      for (const entry of manifest.files) {
+        const result = await runTest(page, entry, RESULTS_DIR);
+        results.push(result);
+      }
+
+      // Write results JSON
+      const resultsPath = path.join(RESULTS_DIR, "results.json");
+      fs.writeFileSync(
+        resultsPath,
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            ooUrl: ONLYOFFICE_URL,
+            threshold: PIXEL_DIFF_THRESHOLD,
+            total: results.length,
+            results,
+          },
+          null,
+          2
+        )
+      );
+
+      console.log(`\nResults written to: ${resultsPath}`);
+      console.log("Run 'npm run score' to generate the HTML report.");
+    }
+  } finally {
+    await browser.close();
+    // Close all active connections first so server.close() resolves immediately,
+    // then await the close to avoid a race where process exit (on error path)
+    // tears down the handle before the OS releases the port.
+    fileServer.closeAllConnections();
+    await new Promise<void>((resolve) => fileServer.close(() => resolve()));
+  }
+}
+
+async function checkOnlyOffice(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const url = new URL(ONLYOFFICE_URL);
+    const options = {
+      hostname: url.hostname,
+      port: parseInt(url.port || "80", 10),
+      path: "/healthcheck",
+      // Use GET (not HEAD): OO's /healthcheck returns the body "true" on success.
+      // Some server configurations reject HEAD on endpoints that return a body,
+      // causing a spurious 405 that would make every CI run abort with a false
+      // "not reachable" error. GET is safe and lets us assert the body too.
+      method: "GET",
+      timeout: 5000,
+    };
+
+    const req = http.request(options, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume(); // drain so the socket can be reused
+        resolve(false);
+        return;
+      }
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        // OO healthcheck returns the literal string "true" when healthy.
+        resolve(body.trim() === "true");
+      });
+    });
+
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+
+    req.end();
+  });
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});

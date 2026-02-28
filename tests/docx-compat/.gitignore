@@ -1,0 +1,4 @@
+node_modules/
+corpus/
+results/
+# reference/ is intentionally NOT ignored — PNGs are committed as baselines
