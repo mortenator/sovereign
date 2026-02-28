@@ -16,7 +16,18 @@
       },
       "server": {
         "port": 8080,
-        "siteUrl": ""
+        "siteUrl": "https://docs.${DOMAIN}"
+      },
+      "secret": {
+        "inbox": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        },
+        "outbox": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        },
+        "session": {
+          "string": "${ONLYOFFICE_JWT_SECRET}"
+        }
       },
       "token": {
         "enable": {
@@ -40,12 +51,6 @@
         "interval": "5m"
       }
     },
-    "storage": {
-      "fs": {
-        "secretString": "${ONLYOFFICE_JWT_SECRET}",
-        "folderPath": "/var/www/onlyoffice/Data"
-      }
-    },
     "stats": {
       "enabled": false
     },
@@ -63,9 +68,6 @@
     "fs": {
       "folderPath": "/var/www/onlyoffice/Data"
     }
-  },
-  "rabbitmq": {
-    "url": "amqp://guest:guest@localhost"
   },
   "log": {
     "filePath": "/var/log/onlyoffice",

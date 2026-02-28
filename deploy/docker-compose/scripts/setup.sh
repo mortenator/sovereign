@@ -225,8 +225,8 @@ resolve_realm_config() {
   local OO_TEMPLATE="$COMPOSE_DIR/config/onlyoffice/local.json"
   local OO_RESOLVED="$COMPOSE_DIR/config/onlyoffice/local-resolved.json"
 
-  export ONLYOFFICE_DB_PASSWORD ONLYOFFICE_JWT_SECRET REDIS_PASSWORD
-  envsubst '${ONLYOFFICE_DB_PASSWORD} ${ONLYOFFICE_JWT_SECRET} ${REDIS_PASSWORD}' < "$OO_TEMPLATE" > "$OO_RESOLVED"
+  export ONLYOFFICE_DB_PASSWORD ONLYOFFICE_JWT_SECRET REDIS_PASSWORD DOMAIN
+  envsubst '${ONLYOFFICE_DB_PASSWORD} ${ONLYOFFICE_JWT_SECRET} ${REDIS_PASSWORD} ${DOMAIN}' < "$OO_TEMPLATE" > "$OO_RESOLVED"
   chmod 600 "$OO_RESOLVED"
   ok "OnlyOffice config → config/onlyoffice/local-resolved.json"
 

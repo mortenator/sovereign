@@ -250,6 +250,8 @@ cleanup_old_backups() {
 
   if [[ $COUNT -gt 0 ]]; then
     find "$BACKUP_DIR" -name "sovereign-backup-*.tar.gz" -mtime "+$RETENTION_DAYS" -delete
+    # Also delete the paired checksum files so they don't accumulate indefinitely.
+    find "$BACKUP_DIR" -name "sovereign-backup-*.tar.gz.sha256" -mtime "+$RETENTION_DAYS" -delete
     ok "Removed $COUNT old backup(s)"
   else
     ok "No old backups to remove"
