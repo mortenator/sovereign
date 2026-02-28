@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -15,6 +16,7 @@ import {
   SquareCode,
   BookOpen,
 } from 'lucide-react'
+import { execOOMethod } from '@/lib/onlyoffice'
 
 function InsertBtn({
   label,
@@ -55,44 +57,72 @@ function InsertGroup({ label, children }: { label: string; children: React.React
   )
 }
 
+// OO SDK does not expose a connector method for this action — direct the user to the editor UI.
+function notAvailable(feature: string) {
+  alert(`"${feature}" is not available via the ribbon.\nUse the Format menu inside the editor.`)
+}
+
 export function InsertTab() {
-  const handleInsert = (type: string) => {
-    console.log(`Insert: ${type}`)
-    // In production, these would call the OO SDK plugin API
+  // Kept for future local-file upload once a backend upload endpoint exists.
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const handleInsertTable = () => {
+    execOOMethod('InsertTable', null, { Rows: 3, Cols: 3 })
+  }
+
+  const handleInsertImage = () => {
+    // OO Document Server must fetch the image URL, so a local blob: URL won't work.
+    // Until a backend upload endpoint is available, prompt for a public image URL.
+    const url = window.prompt('Enter image URL (must be publicly accessible):')
+    if (url?.trim()) {
+      execOOMethod('InsertImage', null, { c: 'add', Images: [{ ImageUrl: url.trim() }] })
+    }
   }
 
   return (
     <div className="flex items-stretch gap-px px-2 py-1">
+      {/* Hidden file input — reserved for future local-upload implementation */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        aria-hidden="true"
+      />
+
       <InsertGroup label="Pages">
-        <InsertBtn label="Cover" icon={BookOpen} onClick={() => handleInsert('cover')} />
-        <InsertBtn label="Blank Page" icon={FileText} onClick={() => handleInsert('blank')} />
-        <InsertBtn label="Page Break" icon={Minus} onClick={() => handleInsert('pagebreak')} />
+        {/* Cover, Blank Page, Page Break: no OO SDK connector method — stub pending plugin support */}
+        <InsertBtn label="Cover" icon={BookOpen} onClick={() => notAvailable('Cover Page')} />
+        <InsertBtn label="Blank Page" icon={FileText} onClick={() => notAvailable('Blank Page')} />
+        <InsertBtn label="Page Break" icon={Minus} onClick={() => notAvailable('Page Break')} />
       </InsertGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
 
       <InsertGroup label="Tables">
-        <InsertBtn label="Table" icon={Table} onClick={() => handleInsert('table')} />
+        <InsertBtn label="Table" icon={Table} onClick={handleInsertTable} />
       </InsertGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
 
       <InsertGroup label="Illustrations">
-        <InsertBtn label="Image" icon={Image} onClick={() => handleInsert('image')} />
+        <InsertBtn label="Image" icon={Image} onClick={handleInsertImage} />
       </InsertGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
 
       <InsertGroup label="Links">
-        <InsertBtn label="Link" icon={Link} onClick={() => handleInsert('link')} />
+        {/* Hyperlink: no direct connector method — stub pending OO SDK support */}
+        <InsertBtn label="Link" icon={Link} onClick={() => notAvailable('Hyperlink')} />
       </InsertGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
 
       <InsertGroup label="Text">
-        <InsertBtn label="Header" icon={Hash} onClick={() => handleInsert('header')} />
-        <InsertBtn label="Footer" icon={Hash} onClick={() => handleInsert('footer')} />
-        <InsertBtn label="Code Block" icon={SquareCode} onClick={() => handleInsert('code')} />
+        {/* Header, Footer, Code Block: not exposed via OO SDK connector */}
+        <InsertBtn label="Header" icon={Hash} onClick={() => notAvailable('Header')} />
+        <InsertBtn label="Footer" icon={Hash} onClick={() => notAvailable('Footer')} />
+        <InsertBtn label="Code Block" icon={SquareCode} onClick={() => notAvailable('Code Block')} />
       </InsertGroup>
     </div>
   )

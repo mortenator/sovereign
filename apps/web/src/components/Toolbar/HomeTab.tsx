@@ -135,21 +135,53 @@ export function HomeTab() {
 
   return (
     <div className="flex items-stretch gap-px px-2 py-1 flex-wrap">
-      {/* Clipboard group */}
-      {/* Paste/Cut/Copy are handled natively by the OO editor iframe via keyboard shortcuts;
-          the connector API does not expose clipboard methods for browser security reasons. */}
+      {/* Clipboard group — browser security blocks programmatic clipboard access in iframes;
+          keyboard shortcuts work directly in the editor. Buttons are disabled with hints. */}
       <RibbonGroup label="Clipboard">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ribbon" size="sm" onClick={() => fmt('Paste')} aria-label="Paste">
+            <Button
+              variant="ribbon"
+              size="sm"
+              disabled
+              aria-label="Paste — use Ctrl+V"
+              className="opacity-60 cursor-not-allowed"
+            >
               <Clipboard className="h-3.5 w-3.5 mr-1" />
               <span className="text-xs">Paste</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>Paste (Ctrl+V)</TooltipContent>
         </Tooltip>
-        <RibbonBtn label="Cut" icon={Scissors} onClick={() => fmt('Cut')} shortcut="Ctrl+X" />
-        <RibbonBtn label="Copy" icon={Copy} onClick={() => fmt('Copy')} shortcut="Ctrl+C" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ribbon"
+              size="icon"
+              disabled
+              aria-label="Cut — use Ctrl+X"
+              className="h-7 w-7 opacity-60 cursor-not-allowed"
+            >
+              <Scissors className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Cut (Ctrl+X)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ribbon"
+              size="icon"
+              disabled
+              aria-label="Copy — use Ctrl+C"
+              className="h-7 w-7 opacity-60 cursor-not-allowed"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Copy (Ctrl+C)</TooltipContent>
+        </Tooltip>
+        {/* Format Painter: stub pending OO SDK support */}
         <RibbonBtn label="Format Painter" icon={Paintbrush} onClick={() => {}} />
       </RibbonGroup>
 

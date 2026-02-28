@@ -37,6 +37,18 @@ function AppHeader() {
   const { documentTitle, isDirty } = useDocumentStore()
   const [newDocOpen, setNewDocOpen] = useState(false)
   const [saveAsOpen, setSaveAsOpen] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // Fallback: let the user copy the URL manually
+      window.prompt('Copy this link to share:', window.location.href)
+    }
+  }
 
   return (
     <>
@@ -176,14 +188,14 @@ function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {}}
+                onClick={handleShare}
                 className="text-white hover:bg-blue-600 dark:hover:bg-blue-800 h-7 w-7"
-                aria-label="Share document"
+                aria-label="Share document — copy link"
               >
                 <Share2 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Share</TooltipContent>
+            <TooltipContent>{linkCopied ? 'Link copied!' : 'Share — Copy Link'}</TooltipContent>
           </Tooltip>
 
           <Tooltip>

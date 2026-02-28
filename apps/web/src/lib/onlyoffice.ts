@@ -162,7 +162,8 @@ export function destroyOOConnector(): void {
  */
 export function execOOMethod(
   methodName: string,
-  callback: (() => void) | null = null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  callback: ((result?: any) => void) | null = null,
   data?: unknown
 ): void {
   try {

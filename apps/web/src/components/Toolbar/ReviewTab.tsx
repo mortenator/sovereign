@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -7,6 +8,7 @@ import {
 } from '@/components/ui/tooltip'
 import { MessageSquare, CheckSquare, Eye, GitMerge, SpellCheck } from 'lucide-react'
 import { useEditorStore } from '@/store/editorStore'
+import { execOOMethod } from '@/lib/onlyoffice'
 
 function ReviewBtn({
   label,
@@ -52,15 +54,44 @@ function ReviewGroup({ label, children }: { label: string; children: React.React
 
 export function ReviewTab() {
   const { sidebarPanel, toggleSidebarPanel } = useEditorStore()
+  const [trackChanges, setTrackChanges] = useState(false)
+  const [showMarkup, setShowMarkup] = useState(false)
+
+  const handleTrackChanges = () => {
+    const next = !trackChanges
+    setTrackChanges(next)
+    execOOMethod('SetRevisionsChange', null, { set: next })
+  }
+
+  const handleAcceptAll = () => {
+    execOOMethod('AcceptAllRevisions', null)
+  }
+
+  const handleShowMarkup = () => {
+    const next = !showMarkup
+    setShowMarkup(next)
+    execOOMethod('ShowChanges', null, { value: next })
+  }
 
   return (
     <div className="flex items-stretch gap-px px-2 py-1">
       <ReviewGroup label="Proofing">
-        <ReviewBtn
-          label="Spelling"
-          icon={SpellCheck}
-          onClick={() => console.log('spelling')}
-        />
+        {/* Spelling check is not exposed via OO SDK connector — use Review menu in the editor */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ribbon"
+              size="sm"
+              disabled
+              aria-label="Spelling — use Review menu in editor"
+              className="flex-col h-12 w-14 gap-0.5 text-[10px] opacity-50 cursor-not-allowed"
+            >
+              <SpellCheck className="h-4 w-4" />
+              Spelling
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Use Review menu in editor</TooltipContent>
+        </Tooltip>
       </ReviewGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
@@ -75,7 +106,7 @@ export function ReviewTab() {
         <ReviewBtn
           label="Accept All"
           icon={CheckSquare}
-          onClick={() => console.log('accept all')}
+          onClick={handleAcceptAll}
         />
       </ReviewGroup>
 
@@ -85,12 +116,14 @@ export function ReviewTab() {
         <ReviewBtn
           label="Track Changes"
           icon={GitMerge}
-          onClick={() => console.log('track changes')}
+          onClick={handleTrackChanges}
+          active={trackChanges}
         />
         <ReviewBtn
           label="Show Markup"
           icon={Eye}
-          onClick={() => console.log('show markup')}
+          onClick={handleShowMarkup}
+          active={showMarkup}
         />
       </ReviewGroup>
     </div>

@@ -64,7 +64,8 @@ interface OOConfig {
 }
 
 interface OOConnector {
-  executeMethod(name: string, callback: (() => void) | null, data?: unknown): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  executeMethod(name: string, callback: ((result?: any) => void) | null, data?: unknown): void;
 }
 
 interface OOEditor {

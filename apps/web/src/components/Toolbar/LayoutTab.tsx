@@ -10,7 +10,10 @@ import {
   Columns,
   Ruler,
   ArrowUpDown,
+  IndentIcon,
+  OutdentIcon,
 } from 'lucide-react'
+import { execOOMethod } from '@/lib/onlyoffice'
 
 function LayoutBtn({
   label,
@@ -52,47 +55,61 @@ function LayoutGroup({ label, children }: { label: string; children: React.React
 }
 
 export function LayoutTab() {
-  const handleLayout = (type: string) => {
-    console.log(`Layout: ${type}`)
+  // Page Setup actions: no direct OO SDK connector method — route to editor UI
+  const notAvailable = (feature: string) =>
+    alert(`"${feature}" is not available via the ribbon.\nUse the Layout menu inside the editor.`)
+
+  const handleIndentDecrease = () => {
+    execOOMethod('ParagraphIndent', null, { type: 'decrease' })
+  }
+
+  const handleIndentIncrease = () => {
+    execOOMethod('ParagraphIndent', null, { type: 'increase' })
   }
 
   return (
     <div className="flex items-stretch gap-px px-2 py-1">
       <LayoutGroup label="Page Setup">
-        <LayoutBtn label="Margins" icon={Ruler} onClick={() => handleLayout('margins')} />
-        <LayoutBtn label="Orientation" icon={ArrowUpDown} onClick={() => handleLayout('orientation')} />
-        <LayoutBtn label="Size" icon={LayoutTemplate} onClick={() => handleLayout('size')} />
-        <LayoutBtn label="Columns" icon={Columns} onClick={() => handleLayout('columns')} />
+        {/* Page setup dialogs are not exposed via OO SDK connector — stub pending plugin support */}
+        <LayoutBtn label="Margins" icon={Ruler} onClick={() => notAvailable('Margins')} />
+        <LayoutBtn label="Orientation" icon={ArrowUpDown} onClick={() => notAvailable('Orientation')} />
+        <LayoutBtn label="Size" icon={LayoutTemplate} onClick={() => notAvailable('Size')} />
+        <LayoutBtn label="Columns" icon={Columns} onClick={() => notAvailable('Columns')} />
       </LayoutGroup>
 
       <Separator orientation="vertical" className="mx-1 h-14" />
 
       <LayoutGroup label="Paragraph">
-        <div className="flex flex-col gap-1 px-1">
-          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <span className="w-16">Indent Left</span>
-            <input
-              type="number"
-              defaultValue={0}
-              min={0}
-              max={100}
-              className="w-14 h-6 border border-gray-300 dark:border-gray-600 rounded px-1 text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              aria-label="Left indent in cm"
-            />
-            <span className="text-[10px] text-gray-400">cm</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <span className="w-16">Indent Right</span>
-            <input
-              type="number"
-              defaultValue={0}
-              min={0}
-              max={100}
-              className="w-14 h-6 border border-gray-300 dark:border-gray-600 rounded px-1 text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              aria-label="Right indent in cm"
-            />
-            <span className="text-[10px] text-gray-400">cm</span>
-          </div>
+        <div className="flex items-center gap-1 px-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ribbon"
+                size="icon"
+                onClick={handleIndentDecrease}
+                aria-label="Decrease indent"
+                className="h-7 w-7"
+              >
+                <OutdentIcon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Decrease Indent</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ribbon"
+                size="icon"
+                onClick={handleIndentIncrease}
+                aria-label="Increase indent"
+                className="h-7 w-7"
+              >
+                <IndentIcon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Increase Indent</TooltipContent>
+          </Tooltip>
         </div>
       </LayoutGroup>
     </div>
