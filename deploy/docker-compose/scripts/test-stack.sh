@@ -182,10 +182,22 @@ else
 fi
 
 # OnlyOffice health check (internal)
+# NOTE: /healthcheck can return {"error":0,"version":"..."} with "true" body
+# before sub-services (SpellChecker, Converter) are fully initialized.
+# /info/info.json is only served once all document service workers are ready,
+# making it a more reliable readiness signal (checked as a secondary warn below).
 if docker exec sovereign-onlyoffice curl -sf http://localhost:80/healthcheck 2>/dev/null | grep -qi "true"; then
   pass "OnlyOffice — /healthcheck (internal)"
 else
   fail "OnlyOffice — /healthcheck (internal)"
+fi
+# Secondary readiness check — warn if the document service worker is not yet up.
+# Tradeoff: this check is best-effort; /info/info.json may not exist on all
+# OnlyOffice versions. A warn here does not block the overall PASS/FAIL result.
+if docker exec sovereign-onlyoffice curl -sf http://localhost:80/info/info.json 2>/dev/null | grep -q "documentServer"; then
+  pass "OnlyOffice — /info/info.json (document service ready)"
+else
+  warn "OnlyOffice — /info/info.json not available (service may still be initializing or on older version)"
 fi
 
 # Keycloak health check (internal)

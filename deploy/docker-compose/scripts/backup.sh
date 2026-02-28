@@ -75,6 +75,12 @@ check_containers() {
 # ─────────────────────────────────────────────
 setup_backup_dir() {
   info "Creating backup directory: $BACKUP_PATH"
+  # Set restrictive file-creation mask for the rest of this process: new files
+  # default to 600 (owner read/write only) and new directories to 700.
+  # This ensures pg_dump output files and mc mirror files never have
+  # world- or group-readable permissions, even transiently before the
+  # compress_backup step applies explicit chmod 600 to the final archive.
+  umask 077
   mkdir -p "$BACKUP_PATH"
   chmod 700 "$BACKUP_PATH"
   ok "Backup directory ready"
@@ -192,6 +198,13 @@ upload_to_s3() {
     warn "S3 credentials not set — skipping remote upload."
     return 0
   fi
+
+  # NOTE (URL validation tradeoff): S3_ENDPOINT is verified to be non-empty
+  # above but its format (valid URL, reachable host) is not pre-validated here.
+  # mc itself will emit a clear error if the endpoint is malformed or unreachable,
+  # which propagates as a non-zero exit and aborts the script (set -euo pipefail).
+  # Add a `curl --connect-timeout 5 -sf "$S3_ENDPOINT"` pre-check here if you
+  # need explicit connectivity validation before the mc config file is written.
 
   # NOTE (security tradeoff): Backups are uploaded without additional
   # client-side encryption. The archive is compressed but plaintext.

@@ -230,6 +230,10 @@ resolve_realm_config() {
   local REALM_RESOLVED="$COMPOSE_DIR/config/keycloak/realm-resolved.json"
 
   export DOMAIN KEYCLOAK_CLIENT_SECRET
+  # Pass an explicit variable list to envsubst so that Keycloak's own
+  # placeholder syntax (e.g. "${role_default-roles}" in role descriptions)
+  # is left untouched. Without the list, envsubst would replace every
+  # ${…} pattern — even ones Keycloak expects to see at import time.
   envsubst '${DOMAIN} ${KEYCLOAK_CLIENT_SECRET}' < "$REALM_TEMPLATE" > "$REALM_RESOLVED"
   chmod 600 "$REALM_RESOLVED"
   ok "Keycloak realm config → config/keycloak/realm-resolved.json"
